@@ -3,7 +3,7 @@
   "name": "io.github.sidduHERE/agentpool",
   "title": "AgentPool",
   "description": "See live usage limits across your coding-agent subscriptions and offload work to a provider with headroom. Local-first, explicit selection, no auto-routing.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "repository": {
     "url": "https://github.com/sidduHERE/agentpool",
     "source": "github"
@@ -13,7 +13,7 @@
     {
       "registryType": "pypi",
       "identifier": "agentpool-cli",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "transport": {
         "type": "stdio"
       },

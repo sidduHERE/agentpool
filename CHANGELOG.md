@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.3 - 2026-05-29
+
 - Reposition docs and descriptions around the primary value: making full use of
   the coding-agent subscriptions you pay for by offloading work to a provider
   with headroom when the active one nears its limit. Updates README, package and
