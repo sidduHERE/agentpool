@@ -3,7 +3,7 @@
   "name": "io.github.sidduhere/agentpool",
   "title": "AgentPool",
   "description": "Local MCP control plane for coding-agent inventory, usage, spawn, and observe.",
-  "version": "0.1.0a9",
+  "version": "0.1.0",
   "repository": {
     "url": "https://github.com/sidduHERE/agentpool",
     "source": "github"

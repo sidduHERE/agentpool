@@ -8,14 +8,35 @@ your coding-agent CLIs are logged in and where `tmux` is available.
 - Python 3.11 or newer.
 - `tmux` on `PATH`.
 - Git on `PATH`.
-- macOS or Linux. Windows is not a v0.1 target except through WSL-like shells.
+- macOS or Linux for the runtime. The `agentpool-cli` package installs on
+  Windows too, but `tmux` is not native there, so Windows is supported only
+  through WSL.
+
+## Install From PyPI
+
+The published distribution is `agentpool-cli`; the installed command is
+`agentpool`.
+
+```bash
+uv tool install agentpool-cli      # recommended
+pipx install agentpool-cli         # fallback
+uvx agentpool-cli --help           # zero-install try
+```
+
+Use `python3.12` or newer if that is your available Python. Avoid the system
+`python3` on machines where it is still Python 3.10; AgentPool requires Python
+3.11 or newer. With `uv` you can pin the interpreter:
+
+```bash
+uv tool install --python python3.11 agentpool-cli
+```
 
 ## Source Install
 
-While the repository is in private preview, install from a checkout:
+Install from a checkout:
 
 ```bash
-git clone git@github.com:sidduHERE/agentpool.git
+git clone https://github.com/sidduHERE/agentpool.git
 cd agentpool
 uv tool install --force .
 ```
@@ -27,16 +48,21 @@ uv venv
 uv pip install -e ".[dev]"
 ```
 
-Use `python3.12` or newer if that is your available Python. Avoid the system
-`python3` on machines where it is still Python 3.10; AgentPool requires Python
-3.11 or newer.
+If you want a plain virtual environment from source:
 
-## Private GitHub Release Install
+```bash
+python3.11 -m venv ~/.local/agentpool-venv
+~/.local/agentpool-venv/bin/python -m pip install --upgrade pip
+~/.local/agentpool-venv/bin/python -m pip install .
+~/.local/agentpool-venv/bin/agentpool --help
+```
 
-Invited private-preview testers can use the installer script from a checkout.
-It wraps the private GitHub release download, verifies the release SHA256 digest
-when GitHub exposes one, installs with `uv tool` when available, and runs basic
-post-install validation:
+## GitHub Release Install
+
+You can install a wheel pinned to a specific GitHub release without PyPI. The
+installer script wraps the release download, verifies the release SHA256 digest
+when GitHub exposes one, installs with `uv tool` when available (or `pipx`), and
+runs basic post-install validation:
 
 ```bash
 scripts/install.sh latest
@@ -61,39 +87,6 @@ gh release download <tag> \
 uv tool install --force --python python3.11 \
   /tmp/agentpool-release/agentpool_cli-*-py3-none-any.whl
 agentpool --version
-```
-
-Direct GitHub release asset URLs return `404` to unauthenticated package
-installers while the repository is private, so use `gh release download` or the
-installer script for now.
-
-## Public Package Path
-
-The public PyPI distribution will be `agentpool-cli` because `agentpool` is
-already used by another project. The console command stays `agentpool`.
-
-Once public publishing is enabled:
-
-```bash
-uv tool install agentpool-cli
-agentpool setup codex
-agentpool doctor --deep --privacy
-```
-
-Fallback:
-
-```bash
-pipx install agentpool-cli
-uvx agentpool-cli --help
-```
-
-If you want a plain virtual environment from source:
-
-```bash
-python3.11 -m venv ~/.local/agentpool-venv
-~/.local/agentpool-venv/bin/python -m pip install --upgrade pip
-~/.local/agentpool-venv/bin/python -m pip install .
-~/.local/agentpool-venv/bin/agentpool --help
 ```
 
 ## First Five Minutes
@@ -163,7 +156,7 @@ config paste.
 
 ## Upgrades
 
-For public `uv tool` installs:
+For PyPI `uv tool` installs:
 
 ```bash
 uv tool upgrade agentpool-cli

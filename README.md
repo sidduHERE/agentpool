@@ -26,10 +26,30 @@ The v0.1 alpha posture is conservative:
 
 ## Install
 
-Install from source while the repository is in private preview:
+AgentPool publishes to PyPI as `agentpool-cli`; the installed command is
+`agentpool`.
 
 ```bash
-git clone git@github.com:sidduHERE/agentpool.git
+uv tool install agentpool-cli      # recommended
+pipx install agentpool-cli         # fallback
+uvx agentpool-cli --help           # zero-install try
+```
+
+Then:
+
+```bash
+agentpool setup codex
+agentpool doctor --deep --privacy
+```
+
+The `agentpool-cli` package installs on macOS, Linux, and Windows, but the
+runtime requires `tmux`, so the supported runtime is macOS or Linux (Windows
+via WSL).
+
+Install from source:
+
+```bash
+git clone https://github.com/sidduHERE/agentpool.git
 cd agentpool
 uv tool install --force .
 ```
@@ -41,24 +61,15 @@ uv venv
 uv pip install -e ".[dev]"
 ```
 
-The public package name is reserved as `agentpool-cli`; the command remains
-`agentpool`. When PyPI publishing is enabled, the install story becomes:
-
-```bash
-uv tool install agentpool-cli
-agentpool setup codex
-agentpool doctor --deep --privacy
-```
-
-Fallbacks will be `pipx install agentpool-cli` and `uvx agentpool-cli --help`.
-Private GitHub release installs are still supported for invited testers:
+A GitHub release install (wheel pinned to a tag, no PyPI required) is also
+supported:
 
 ```bash
 scripts/install.sh latest
 ```
 
-See [docs/install.md](docs/install.md) for private-alpha install, first-run,
-upgrade, and MCP setup notes.
+See [docs/install.md](docs/install.md) for first-run, upgrade, and MCP setup
+notes.
 
 ## Quickstart
 

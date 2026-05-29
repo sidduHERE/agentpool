@@ -39,8 +39,8 @@ screenshots containing account data.
 
 - `main` is the integration branch.
 - Use short feature branches such as `codex/mcp-client-docs` or
-  `codex/mcp-client-docs`.
-- Prefer pull requests for anything after the initial private-alpha import.
+  `codex/usage-probe-fix`.
+- Prefer pull requests for anything after the initial import.
 - Keep releases tag-driven. Do not hand-edit generated distribution artifacts.
 
 ## Design Rules
