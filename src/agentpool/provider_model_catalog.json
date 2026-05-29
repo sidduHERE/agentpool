@@ -1,0 +1,997 @@
+{
+  "version": 1,
+  "providers": {
+    "claude-code": {
+      "default_model": "sonnet",
+      "smoke_model": "sonnet",
+      "model_arg": "--model",
+      "catalog_completeness": "cli_help_aliases_and_examples",
+      "quirks": [
+        "interactive_usage_command",
+        "startup_mcp_warnings_do_not_block"
+      ],
+      "models": [
+        {
+          "id": "sonnet",
+          "display_name": "Claude Sonnet",
+          "source": "config",
+          "confidence": "local_config",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "opus",
+          "display_name": "Claude Opus",
+          "source": "config",
+          "confidence": "local_config",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "display_name": "Claude Sonnet 4.6",
+          "source": "config",
+          "confidence": "observed",
+          "aliases": [
+            "sonnet"
+          ],
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-opus-4-6",
+          "display_name": "Claude Opus 4.6",
+          "source": "config",
+          "confidence": "local_config",
+          "aliases": [
+            "opus"
+          ],
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        }
+      ]
+    },
+    "codex-cli": {
+      "default_model": "gpt-5.5",
+      "smoke_model": "gpt-5.5",
+      "model_arg": "--model",
+      "default_initial_prompt_mode": "arg",
+      "reasoning_effort_config_key": "model_reasoning_effort",
+      "service_tier_config_key": "service_tier",
+      "submit_keys": [
+        "C-m"
+      ],
+      "catalog_completeness": "codex_debug_models_subset",
+      "quirks": [
+        "startup_update_prompt",
+        "startup_trust_prompt",
+        "low_weekly_limit_warning"
+      ],
+      "models": [
+        {
+          "id": "gpt-5.5",
+          "display_name": "GPT-5.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            },
+            "service_tiers": [
+              "fast"
+            ]
+          }
+        },
+        {
+          "id": "gpt-5.4",
+          "display_name": "GPT-5.4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "high"
+            },
+            "service_tiers": [
+              "fast"
+            ]
+          }
+        },
+        {
+          "id": "gpt-5.4-mini",
+          "display_name": "GPT-5.4 Mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.3-codex",
+          "display_name": "GPT-5.3 Codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.3-codex-spark",
+          "display_name": "GPT-5.3 Codex Spark",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.2",
+          "display_name": "GPT-5.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "low"
+            }
+          }
+        }
+      ]
+    },
+    "cursor-cli": {
+      "default_model": "composer-2.5",
+      "smoke_model": "composer-2.5",
+      "model_arg": "--model",
+      "default_initial_prompt_mode": "arg",
+      "read_only_mode_arg": "ask",
+      "catalog_completeness": "cursor_agent_launch_error_observed",
+      "quirks": [
+        "binary_may_be_agent_or_cursor-agent",
+        "read_only_uses_ask_mode",
+        "trust_flag_headless_only",
+        "native_usage_interactive_slash_usage_only",
+        "codexbar_cursor_usage_optional"
+      ],
+      "models": [
+        {
+          "id": "composer-2.5",
+          "display_name": "Composer 2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "cursor"
+          }
+        },
+        {
+          "id": "composer-2.5-fast",
+          "display_name": "Composer 2.5 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "cursor"
+          }
+        },
+        {
+          "id": "composer-2",
+          "display_name": "Composer 2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "cursor"
+          }
+        },
+        {
+          "id": "composer-2-fast",
+          "display_name": "Composer 2 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "cursor"
+          }
+        },
+        {
+          "id": "auto",
+          "display_name": "Auto",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "auto"
+          }
+        },
+        {
+          "id": "gpt-5.5-high",
+          "display_name": "GPT-5.5 High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.5-high-fast",
+          "display_name": "GPT-5.5 High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-high",
+          "display_name": "GPT-5.4 High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-high-fast",
+          "display_name": "GPT-5.4 High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.3-codex-high",
+          "display_name": "GPT-5.3 Codex High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.3-codex-high-fast",
+          "display_name": "GPT-5.3 Codex High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "claude-4.6-sonnet-medium",
+          "display_name": "Claude 4.6 Sonnet Medium",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "claude-4.6-sonnet-medium-thinking",
+          "display_name": "Claude 4.6 Sonnet Medium Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-high",
+          "display_name": "Claude Opus 4.7 High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "gemini-3.1-pro",
+          "display_name": "Gemini 3.1 Pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "gemini-3-flash",
+          "display_name": "Gemini 3 Flash",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "grok-4.3",
+          "display_name": "Grok 4.3",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok"
+          }
+        },
+        {
+          "id": "kimi-k2.5",
+          "display_name": "Kimi K2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "kimi"
+          }
+        }
+      ]
+    },
+    "opencode": {
+      "catalog_completeness": "not_verified",
+      "quirks": [
+        "live_smoke_skipped",
+        "native_usage_unknown"
+      ],
+      "models": []
+    },
+    "copilot-cli": {
+      "default_model": "gpt-5.5",
+      "smoke_model": "gpt-5.5",
+      "model_arg": "--model",
+      "forward_separator": "--",
+      "read_only_mode_arg": "plan",
+      "catalog_completeness": "cli_help_examples",
+      "quirks": [
+        "gh_copilot_requires_separator_for_args",
+        "read_only_uses_plan_mode"
+      ],
+      "models": [
+        {
+          "id": "gpt-5.5",
+          "display_name": "GPT-5.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.2",
+          "display_name": "GPT-5.2",
+          "source": "config",
+          "confidence": "local_config",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "claude-sonnet-4.5",
+          "display_name": "Claude Sonnet 4.5",
+          "source": "config",
+          "confidence": "unknown",
+          "metadata": {
+            "family": "claude"
+          }
+        }
+      ]
+    },
+    "droid-cli": {
+      "default_model": "glm-5.1",
+      "smoke_model": "glm-5.1",
+      "model_selection": "runtime_settings",
+      "catalog_completeness": "droid_exec_help_observed",
+      "quirks": [
+        "interactive_model_pin_uses_process_local_settings",
+        "no_native_usage_probe_confirmed"
+      ],
+      "models": [
+        {
+          "id": "glm-5.1",
+          "display_name": "Droid Core GLM-5.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "reasoning": {
+              "supported": [
+                "off",
+                "high"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "kimi-k2.6",
+          "display_name": "Droid Core Kimi K2.6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "reasoning": {
+              "supported": [
+                "off",
+                "high"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "kimi-k2.5",
+          "display_name": "Droid Core Kimi K2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "reasoning": {
+              "supported": [
+                "off",
+                "high"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "display_name": "DeepSeek V4 Pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "reasoning": {
+              "supported": [
+                "off",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "minimax-m2.7",
+          "display_name": "MiniMax M2.7",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "reasoning": {
+              "supported": [
+                "high"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "minimax-m2.5",
+          "display_name": "MiniMax M2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-opus-4-7",
+          "display_name": "Claude Opus 4.7",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-opus-4-6",
+          "display_name": "Claude Opus 4.6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-opus-4-6-fast",
+          "display_name": "Claude Opus 4.6 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-opus-4-5-20251101",
+          "display_name": "Claude Opus 4.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "display_name": "Claude Sonnet 4.6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-sonnet-4-5-20250929",
+          "display_name": "Claude Sonnet 4.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "claude-haiku-4-5-20251001",
+          "display_name": "Claude Haiku 4.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "off"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.5",
+          "display_name": "GPT-5.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.5-fast",
+          "display_name": "GPT-5.5 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.5-pro",
+          "display_name": "GPT-5.5 Pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.4",
+          "display_name": "GPT-5.4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.4-fast",
+          "display_name": "GPT-5.4 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.4-mini",
+          "display_name": "GPT-5.4 Mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.3-codex",
+          "display_name": "GPT-5.3 Codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.3-codex-fast",
+          "display_name": "GPT-5.3 Codex Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.2",
+          "display_name": "GPT-5.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "low"
+            }
+          }
+        },
+        {
+          "id": "gpt-5.2-codex",
+          "display_name": "GPT-5.2 Codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
+          }
+        },
+        {
+          "id": "gemini-3.1-pro-preview",
+          "display_name": "Gemini 3.1 Pro Preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "gemini-3-flash-preview",
+          "display_name": "Gemini 3 Flash Preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini",
+            "reasoning": {
+              "supported": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ],
+              "default": "high"
+            }
+          }
+        },
+        {
+          "id": "glm-5",
+          "display_name": "GLM-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "deprecated": true
+          }
+        },
+        {
+          "id": "glm-4.7",
+          "display_name": "GLM-4.7",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "droid-core",
+            "deprecated": true
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max",
+          "display_name": "GPT-5.1 Codex Max",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "deprecated": true
+          }
+        }
+      ]
+    },
+    "devin-cli": {
+      "default_model": "codex",
+      "smoke_model": "codex",
+      "model_arg": "--model",
+      "catalog_completeness": "cli_help_examples",
+      "quirks": [
+        "usage_plan_status_api_has_daily_weekly_on_demand"
+      ],
+      "models": [
+        {
+          "id": "codex",
+          "display_name": "Codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "codex"
+          }
+        },
+        {
+          "id": "opus",
+          "display_name": "Claude Opus",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "claude-opus-4.6",
+          "display_name": "Claude Opus 4.6",
+          "source": "config",
+          "confidence": "observed",
+          "aliases": [
+            "opus"
+          ],
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "claude-sonnet-4",
+          "display_name": "Claude Sonnet 4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "provider_ids": [
+    "claude-code",
+    "codex-cli",
+    "copilot-cli",
+    "cursor-cli",
+    "devin-cli",
+    "droid-cli",
+    "opencode"
+  ],
+  "defaults": {
+    "claude-code": "sonnet",
+    "codex-cli": "gpt-5.5",
+    "copilot-cli": "gpt-5.5",
+    "cursor-cli": "composer-2.5",
+    "devin-cli": "codex",
+    "droid-cli": "glm-5.1",
+    "opencode": null
+  },
+  "smoke_models": {
+    "claude-code": "sonnet",
+    "codex-cli": "gpt-5.5",
+    "copilot-cli": "gpt-5.5",
+    "cursor-cli": "composer-2.5",
+    "devin-cli": "codex",
+    "droid-cli": "glm-5.1",
+    "opencode": null
+  },
+  "model_counts": {
+    "claude-code": 4,
+    "codex-cli": 6,
+    "copilot-cli": 3,
+    "cursor-cli": 18,
+    "devin-cli": 4,
+    "droid-cli": 28,
+    "opencode": 0
+  },
+  "critical_models": {
+    "codex-cli": [
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.3-codex",
+      "gpt-5.3-codex-spark"
+    ],
+    "cursor-cli": [
+      "composer-2.5",
+      "composer-2.5-fast",
+      "gpt-5.4-high"
+    ],
+    "droid-cli": [
+      "glm-5.1",
+      "kimi-k2.6",
+      "gpt-5.5",
+      "gemini-3-flash-preview"
+    ]
+  },
+  "critical_reasoning": {
+    "codex-cli:gpt-5.5": {
+      "supported": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default": "medium"
+    },
+    "codex-cli:gpt-5.4": {
+      "supported": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default": "high"
+    },
+    "droid-cli:glm-5.1": {
+      "supported": [
+        "off",
+        "high"
+      ],
+      "default": "high"
+    }
+  }
+}

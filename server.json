@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sidduhere/agentpool",
+  "title": "AgentPool",
+  "description": "Local MCP control plane for coding-agent inventory, usage, spawn, and observe.",
+  "version": "0.1.0a9",
+  "repository": {
+    "url": "https://github.com/sidduHERE/agentpool",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/sidduHERE/agentpool"
+}

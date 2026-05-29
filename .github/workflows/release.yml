@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Install tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run release checks
+        run: |
+          python -m pytest -q
+          agentpool models validate --path src/agentpool/provider_model_catalog.json --json
+          agentpool config validate --json
+          agentpool smoke --provider fake-question --repo . --json
+          python -m json.tool server.json >/dev/null
+
+      - name: Build distributions
+        run: |
+          python -m pip install build
+          python -m build
+
+      - name: Verify wheel install
+        run: |
+          python -m venv /tmp/agentpool-wheel-venv
+          /tmp/agentpool-wheel-venv/bin/python -m pip install --upgrade pip
+          /tmp/agentpool-wheel-venv/bin/python -m pip install dist/*.whl
+          /tmp/agentpool-wheel-venv/bin/agentpool config validate --json
+          /tmp/agentpool-wheel-venv/bin/agentpool models validate --json
+          /tmp/agentpool-wheel-venv/bin/agentpool smoke --provider fake-question --repo . --json
+          /tmp/agentpool-wheel-venv/bin/python - <<'PY'
+          from agentpool.mcp.resources import read_resource
+          from agentpool.session_manager import SessionManager
+
+          manager = SessionManager()
+          for uri in ("agentpool://quickstart", "agentpool://skill.md", "agentpool://onboarding"):
+              text = read_resource(manager, uri)
+              assert text.startswith("# "), uri
+          PY
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: agentpool-dist
+          path: dist/*
+
+      - name: Create GitHub prerelease
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          prerelease: true
+          files: |
+            dist/*
+            server.json

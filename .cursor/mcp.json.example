@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agentpool": {
+      "type": "stdio",
+      "command": "REPLACE_WITH_ABSOLUTE_AGENTPOOL_PATH",
+      "args": ["mcp"]
+    }
+  }
+}

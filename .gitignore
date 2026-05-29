@@ -1,0 +1,15 @@
+.DS_Store
+.mcp.json
+.cursor/mcp.json
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.pyo
+*.sqlite
+*.sqlite3
+.agentpool-worktrees/
+dist/
+build/
+*.egg-info/

@@ -1,0 +1,15 @@
+{
+  "plan_status": {
+    "plan_info": {
+      "plan_name": "Trial",
+      "teams_tier": 20
+    },
+    "plan_start_unix": 1778212077,
+    "plan_end_unix": 1779421677,
+    "daily_remaining_percent": 93,
+    "weekly_remaining_percent": 75,
+    "overage_balance_micros": 90498189,
+    "daily_reset_at_unix": 1778313600,
+    "weekly_reset_at_unix": 1778400000
+  }
+}
