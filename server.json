@@ -3,10 +3,26 @@
   "name": "io.github.sidduhere/agentpool",
   "title": "AgentPool",
   "description": "Local MCP control plane for coding-agent inventory, usage, spawn, and observe.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": {
     "url": "https://github.com/sidduHERE/agentpool",
     "source": "github"
   },
-  "websiteUrl": "https://github.com/sidduHERE/agentpool"
+  "websiteUrl": "https://github.com/sidduHERE/agentpool",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "agentpool-cli",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
 }

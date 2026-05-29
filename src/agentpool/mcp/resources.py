@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 def read_resource(manager: SessionManager, uri: str, lockdown: bool = False) -> str:
     if uri == "agentpool://quickstart":
-        return _text_resource("agentpool-skill.md")
+        return _text_resource("quickstart.md")
     if uri == "agentpool://onboarding":
         return _text_resource("onboarding.md")
     if uri == "agentpool://skill.md":

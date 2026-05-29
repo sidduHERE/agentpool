@@ -119,7 +119,7 @@ def _next_command_for_error(exc: ToolError) -> str | None:
     return None
 
 
-@app.command()
+@app.command(help="Check environment, runtime, and provider health.")
 def doctor(
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
     deep: Annotated[bool, typer.Option("--deep", help="Run tmux/sqlite/artifact/cache checks.")] = False,
@@ -179,7 +179,7 @@ def doctor(
         console.print(f"  {command}")
 
 
-@app.command("init")
+@app.command("init", help="Initialize AgentPool config and local state.")
 def init_command(
     path: Annotated[Path, typer.Option("--path", help="Config path to initialize.")] = DEFAULT_CONFIG_PATH,
     force: Annotated[bool, typer.Option("--force", help="Back up and overwrite existing config.")] = False,
@@ -248,7 +248,7 @@ def mcp_config(
         console.print_json(json.dumps(data["config"]))
 
 
-@app.command()
+@app.command(help="List providers with install, auth, model, and usage state.")
 def inventory(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
     data = manager().inventory(include_usage=True)
     if json_output:
@@ -266,7 +266,7 @@ def inventory(json_output: Annotated[bool, typer.Option("--json", help="Emit JSO
         console.print(table)
 
 
-@app.command()
+@app.command(help="Show a provider usage snapshot (cached or freshly probed).")
 def usage(
     provider: Annotated[str | None, typer.Option("--provider", help="Provider id.")] = None,
     backend: Annotated[
@@ -320,7 +320,7 @@ def usage_summary(
         handle_tool_error(exc, json_output)
 
 
-@app.command("capacity-summary")
+@app.command("capacity-summary", help="Alias of usage-summary (human convenience).")
 def capacity_summary(
     provider: Annotated[str | None, typer.Option("--provider", help="Provider id.")] = None,
     refresh: Annotated[bool, typer.Option("--refresh", help="Run live probes before summarizing.")] = False,
@@ -333,7 +333,7 @@ def capacity_summary(
     usage_summary(provider=provider, refresh=refresh, backend=backend, json_output=json_output)
 
 
-@app.command("setup")
+@app.command("setup", help="Wire AgentPool into an MCP host or provider and report next steps.")
 def setup_command(
     target: Annotated[
         str,
@@ -434,7 +434,7 @@ def setup_command(
         raise typer.Exit(1)
 
 
-@app.command()
+@app.command(help="Print onboarding paths, first commands, and MCP host config.")
 def onboard(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
     mgr = manager()
     data = {
@@ -538,7 +538,7 @@ def smoke(
         handle_tool_error(exc, json_output)
 
 
-@app.command()
+@app.command(help="List configured provider ids.")
 def providers(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
     data = manager().inventory(include_usage=False)
     if json_output:
@@ -548,7 +548,7 @@ def providers(json_output: Annotated[bool, typer.Option("--json", help="Emit JSO
             console.print(provider["id"])
 
 
-@app.command("models")
+@app.command("models", help="List the model catalog, or validate it with 'models validate'.")
 def models_command(
     action: Annotated[
         str | None,

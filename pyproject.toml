@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentpool-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local MCP-exposed control plane for live coding-agent sessions."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,6 +31,9 @@ dev = [
 
 [project.scripts]
 agentpool = "agentpool.cli:app"
+# Alias matching the PyPI distribution name so `uvx agentpool-cli mcp` resolves
+# (MCP registry runs the package by its identifier). Primary command stays `agentpool`.
+agentpool-cli = "agentpool.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -51,3 +54,4 @@ include = [
 [tool.hatch.build.targets.wheel.force-include]
 "docs/agentpool-skill.md" = "agentpool/docs/agentpool-skill.md"
 "docs/onboarding.md" = "agentpool/docs/onboarding.md"
+"docs/quickstart.md" = "agentpool/docs/quickstart.md"

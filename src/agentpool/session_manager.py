@@ -323,6 +323,7 @@ class SessionManager:
             self.store.save_session(session)
             self._event(session, "send_initial_prompt", state=session.state.value)
         return {
+            "session_id": session.id,
             "session": session.model_dump(mode="json"),
             "attach_command": self.runtime.attach_command(ref),
             "live_control": {
@@ -703,7 +704,7 @@ class SessionManager:
         final_state = state if not active_state(state) else SessionState.CANCELLED
         self.store.update_session_state(session_id, final_state, ended_at=utc_now_iso())
         self._event(session, "terminate", state=final_state.value, metadata={"reason": reason})
-        return {"ok": True, "state": final_state.value}
+        return {"session_id": session_id, "ok": True, "state": final_state.value}
 
     def reconcile_sessions(self) -> dict[str, Any]:
         reconciled = []

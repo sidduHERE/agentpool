@@ -291,7 +291,15 @@ def test_server_json_matches_package_version() -> None:
     from agentpool import __version__
 
     assert payload["version"] == __version__
-    assert "packages" not in payload
+    # Now that agentpool-cli is on PyPI, server.json advertises the package.
+    packages = payload["packages"]
+    assert len(packages) == 1
+    pkg = packages[0]
+    assert pkg["registryType"] == "pypi"
+    assert pkg["identifier"] == "agentpool-cli"
+    assert pkg["version"] == __version__
+    assert pkg["transport"]["type"] == "stdio"
+    assert pkg["packageArguments"] == [{"type": "positional", "value": "mcp"}]
 
 
 def test_setup_provider_codex_reports_checks_and_mcp_config() -> None:
