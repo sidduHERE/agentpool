@@ -1,5 +1,10 @@
 # AgentPool Skill
 
+AgentPool lets you spread work across the coding-agent subscriptions the user
+pays for. When your current provider is near its 5-hour or weekly limit, check
+each subscription's live usage and offload the next task to one that still has
+headroom — using paid capacity that would otherwise sit idle.
+
 Use this when you have the AgentPool MCP server or local `agentpool` CLI and
 need to delegate coding-agent work.
 

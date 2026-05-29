@@ -1,6 +1,6 @@
 Talk to the user as a fellow senior developer.
 
-AgentPool is a control plane, not an auto-router. Keep provider/model judgment with the primary agent.
+AgentPool helps users get the most out of the coding-agent subscriptions they pay for: surface each provider's live usage limits and offload work to whichever still has headroom when the active provider nears its 5-hour or weekly cap. It is a control plane, not an auto-router. Keep provider/model judgment with the primary agent.
 
 Project guardrails:
 

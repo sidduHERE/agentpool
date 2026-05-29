@@ -2,11 +2,20 @@
 
 <!-- mcp-name: io.github.sidduHERE/agentpool -->
 
-AgentPool is a local Python CLI and MCP server for explicitly controlling coding-agent CLIs as worker sessions.
+You pay for several coding-agent subscriptions — Codex, Claude Code, Cursor,
+Copilot, Gemini — but you work in one at a time. The rest sit idle until your
+active provider hits its 5-hour or weekly limit, and then you stall.
 
-It is a control plane, not an auto-router. AgentPool exposes live provider, model,
-session, artifact, lease, and best-effort usage/capacity state. The primary
-agent or human still chooses the provider and model explicitly.
+AgentPool is a local Python CLI and MCP server that reads the live usage limits
+of every coding-agent subscription you have and lets you — or your primary
+agent — offload work to whichever one still has headroom. Use the capacity you
+already pay for, and keep moving instead of hard-stopping at a cap.
+
+It is a control plane, not an auto-router. AgentPool exposes live provider,
+model, session, artifact, lease, and best-effort usage/capacity state, and runs
+the work you offload as explicit worker sessions. You or your agent still choose
+the provider and model — AgentPool makes the limits visible so that choice is
+informed, never automatic.
 
 The v0.1 alpha posture is conservative:
 
@@ -81,7 +90,12 @@ agentpool doctor --deep --privacy
 agentpool setup all
 agentpool smoke --provider fake-question --repo . --json
 agentpool inventory --json
+agentpool usage-summary --refresh --json
 ```
+
+That last command is the one you will run most: it shows every configured
+subscription's remaining limit, reset time, and a `usable` flag, so you can see
+at a glance which provider to offload the next task to.
 
 Start an explicitly selected read-only worker:
 

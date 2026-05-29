@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Reposition docs and descriptions around the primary value: making full use of
+  the coding-agent subscriptions you pay for by offloading work to a provider
+  with headroom when the active one nears its limit. Updates README, package and
+  registry descriptions, onboarding/skill/quickstart/architecture docs, the CLI
+  help, and the MCP server instructions. No behavior change.
+
 ## 0.1.2 - 2026-05-29
 
 - Fix MCP namespace casing to `io.github.sidduHERE/agentpool` in `server.json`

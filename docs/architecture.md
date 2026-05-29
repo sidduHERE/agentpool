@@ -1,6 +1,6 @@
 # Architecture
 
-AgentPool v0.1 is a local control plane. It exposes inventory, usage snapshots, live session controls, and artifact collection without choosing providers for the primary agent.
+AgentPool v0.1 is a local control plane for making full use of the coding-agent subscriptions you pay for: it exposes inventory, usage snapshots, live session controls, and artifact collection so you can offload work to a provider with headroom — without choosing providers for the primary agent.
 
 Public source-of-truth docs:
 

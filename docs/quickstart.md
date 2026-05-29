@@ -1,8 +1,9 @@
 # AgentPool Quickstart
 
-The shortest path from install to a working worker. AgentPool is a local
-control plane: you pick the provider and model explicitly; it never routes for
-you.
+The shortest path from install to offloading work to another subscription.
+AgentPool reads the live usage limits of every coding-agent subscription you
+have so you can move work to whichever still has headroom. It is a control
+plane, not a router: you pick the provider and model explicitly.
 
 ## 1. Verify the environment
 

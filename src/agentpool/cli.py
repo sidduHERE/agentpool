@@ -44,7 +44,7 @@ from agentpool.usage.probes import detect_codexbar
 
 
 app = typer.Typer(
-    help="AgentPool local coding-agent control plane.",
+    help="Use every coding-agent subscription you pay for: see live usage limits and offload work to providers with headroom.",
     invoke_without_command=True,
     no_args_is_help=True,
 )
