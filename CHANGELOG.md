@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.2 - 2026-05-29
+
+- Fix MCP namespace casing to `io.github.sidduHERE/agentpool` in `server.json`
+  and the README `mcp-name` comment so it matches the GitHub-verified namespace
+  required by the MCP registry.
+
 ## 0.1.1 - 2026-05-29
 
 - Add command descriptions to `doctor`, `init`, `inventory`, `usage`,

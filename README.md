@@ -1,6 +1,6 @@
 # AgentPool
 
-<!-- mcp-name: io.github.sidduhere/agentpool -->
+<!-- mcp-name: io.github.sidduHERE/agentpool -->
 
 AgentPool is a local Python CLI and MCP server for explicitly controlling coding-agent CLIs as worker sessions.
 

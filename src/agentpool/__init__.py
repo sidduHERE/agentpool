@@ -1,3 +1,3 @@
 """AgentPool local agent control plane."""
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"

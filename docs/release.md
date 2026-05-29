@@ -106,7 +106,12 @@ Publish sequence:
 
 1. Publish `agentpool-cli` to PyPI with Trusted Publishing (the release job).
 2. Add the `packages` entry to `server.json`.
-3. Keep the README metadata comment `mcp-name: io.github.sidduhere/agentpool`.
+3. Keep the README metadata comment `mcp-name: io.github.sidduHERE/agentpool`.
+   The namespace casing must match the GitHub username exactly (`sidduHERE`, not
+   `sidduhere`); the registry grants `io.github.<login>/*` with the login's
+   casing. The registry also validates that the README **published in the PyPI
+   package** contains this `mcp-name`, so any casing fix must ship in a PyPI
+   release *before* `mcp-publisher publish` points `packages[].version` at it.
 4. Publish [server.json](../server.json) with `mcp-publisher`.
 5. Keep Docker/remote MCP out of the primary path unless AgentPool stops needing
    local tmux and local provider CLIs.
