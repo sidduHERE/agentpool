@@ -46,7 +46,7 @@ class ProviderAdapter(Protocol):
     def auth_status(self) -> AuthStatus:
         ...
 
-    def usage_snapshot(self) -> CapacitySnapshot:
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
         ...
 
     def inventory_usage_snapshot(self) -> CapacitySnapshot:
@@ -124,7 +124,7 @@ class CommandProviderAdapter:
             reason="No safe auth probe implemented for this provider.",
         )
 
-    def usage_snapshot(self) -> CapacitySnapshot:
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
         return CapacitySnapshot(
             provider_id=self.id,
             status=UsageStatus.UNKNOWN,
@@ -133,7 +133,7 @@ class CommandProviderAdapter:
         )
 
     def inventory_usage_snapshot(self) -> CapacitySnapshot:
-        return self.usage_snapshot()
+        return self.usage_snapshot(allow_interactive=False)
 
     def build_launch_command(self, request: SpawnWorkerRequest, workdir: Path) -> list[str]:
         if self.config.command:
@@ -222,7 +222,7 @@ class FakeProviderAdapter(CommandProviderAdapter):
     def auth_status(self) -> AuthStatus:
         return AuthStatus(status="authenticated", confidence=Confidence.LOCAL_CONFIG, reason="Fake local fixture.")
 
-    def usage_snapshot(self) -> CapacitySnapshot:
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
         return CapacitySnapshot(provider_id=self.id, status=UsageStatus.AVAILABLE, confidence=Confidence.LOCAL_CONFIG)
 
     def capabilities(self) -> list[Capability]:
@@ -236,7 +236,16 @@ class FakeProviderAdapter(CommandProviderAdapter):
 class ClaudeCodeAdapter(CommandProviderAdapter):
     vendor = "Anthropic"
 
-    def usage_snapshot(self) -> CapacitySnapshot:
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
+        if not allow_interactive:
+            return unknown(
+                self.id,
+                "Claude native usage refresh launches an interactive Claude /usage probe; "
+                "it is disabled for MCP callers to avoid interfering with the host Claude Code session. "
+                "Use cached usage from MCP, backend=ccusage/codexbar where available, or run "
+                "`agentpool usage-summary --provider claude-code --refresh --json` from a normal shell.",
+                source="interactive_probe_disabled",
+            )
         return claude_code_usage_snapshot(self.id, self._binary_path(self.config))
 
     def inventory_usage_snapshot(self) -> CapacitySnapshot:
@@ -261,7 +270,7 @@ class CodexCliAdapter(CommandProviderAdapter):
             command.extend(["-c", f"service_tier={json.dumps(request.service_tier)}"])
         return command
 
-    def usage_snapshot(self) -> CapacitySnapshot:
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
         return codex_cli_usage_snapshot(self.id, self._binary_path(self.config))
 
     def inventory_usage_snapshot(self) -> CapacitySnapshot:
@@ -319,7 +328,7 @@ class CursorCliAdapter(CommandProviderAdapter):
         command.extend(["--workspace", str(workdir)])
         return command
 
-    def usage_snapshot(self) -> CapacitySnapshot:
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
         return unknown(
             self.id,
             "Cursor Agent CLI exposes usage via interactive /usage, but no stable non-interactive native usage probe is confirmed.",
@@ -360,7 +369,7 @@ class CopilotCliAdapter(CommandProviderAdapter):
         command.extend(copilot_args)
         return command
 
-    def usage_snapshot(self) -> CapacitySnapshot:
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
         return copilot_cli_usage_snapshot(self.id, self._binary_path(self.config))
 
     def inventory_usage_snapshot(self) -> CapacitySnapshot:
@@ -387,8 +396,12 @@ class FactoryDroidAdapter(CommandProviderAdapter):
 class DevinCliAdapter(CommandProviderAdapter):
     vendor = "Devin"
 
-    def usage_snapshot(self) -> CapacitySnapshot:
-        return devin_cli_usage_snapshot(self.id, self._binary_path(self.config))
+    def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
+        return devin_cli_usage_snapshot(
+            self.id,
+            self._binary_path(self.config),
+            allow_interactive_fallback=allow_interactive,
+        )
 
     def inventory_usage_snapshot(self) -> CapacitySnapshot:
         return unknown(

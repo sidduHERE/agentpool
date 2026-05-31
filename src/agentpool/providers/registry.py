@@ -69,7 +69,12 @@ class ProviderRegistry:
             descriptors.append(descriptor)
         return descriptors
 
-    def usage(self, provider_id: str | None = None, backend: str = "native") -> list[CapacitySnapshot]:
+    def usage(
+        self,
+        provider_id: str | None = None,
+        backend: str = "native",
+        allow_interactive: bool = True,
+    ) -> list[CapacitySnapshot]:
         if backend not in {"native", "codexbar", "ccusage", "combined"}:
             raise ToolError(
                 "INVALID_USAGE_BACKEND",
@@ -78,12 +83,27 @@ class ProviderRegistry:
             )
         adapters = [self.get(provider_id)] if provider_id else list(self.adapters.values())
         if len(adapters) <= 1:
-            return [_usage_for_adapter(adapters[0], backend)] if adapters else []
+            if not adapters:
+                return []
+            return [_usage_for_adapter(adapters[0], backend, allow_interactive=allow_interactive)]
         with ThreadPoolExecutor(max_workers=min(8, len(adapters))) as executor:
-            return list(executor.map(lambda adapter: _usage_for_adapter(adapter, backend), adapters))
+            return list(
+                executor.map(
+                    lambda adapter: _usage_for_adapter(
+                        adapter,
+                        backend,
+                        allow_interactive=allow_interactive,
+                    ),
+                    adapters,
+                )
+            )
 
 
-def _usage_for_adapter(adapter: ProviderAdapter, backend: str) -> CapacitySnapshot:
+def _usage_for_adapter(
+    adapter: ProviderAdapter,
+    backend: str,
+    allow_interactive: bool = True,
+) -> CapacitySnapshot:
     descriptor = adapter.detect()
     if not descriptor.installed:
         return CapacitySnapshot(
@@ -96,12 +116,12 @@ def _usage_for_adapter(adapter: ProviderAdapter, backend: str) -> CapacitySnapsh
         return codexbar_usage_snapshot(adapter.id)
     if backend == "ccusage":
         return ccusage_usage_snapshot(adapter.id)
+    native = adapter.usage_snapshot(allow_interactive=allow_interactive)
     if backend == "combined":
-        native = adapter.usage_snapshot()
         codexbar = codexbar_usage_snapshot(adapter.id)
         ccusage = ccusage_usage_snapshot(adapter.id) if adapter.id == "claude-code" else None
         return combine_usage_snapshots(native, codexbar, ccusage=ccusage)
-    return adapter.usage_snapshot()
+    return native
 
 
 def build_registry(config: AgentPoolConfig) -> ProviderRegistry:

@@ -15,8 +15,9 @@ need to delegate coding-agent work.
 - Prefer the CLI when you have shell access; use MCP for MCP-native/no-shell hosts.
 - Run or read usage before delegation:
   - CLI: `agentpool usage-summary --refresh --json`
-  - MCP: `get_usage_snapshot(refresh=false)` for cached state, or
-    `get_usage_snapshot(refresh=true)` for a live refresh.
+  - MCP: `get_usage_snapshot(refresh=false)` for cached state. Avoid asking MCP
+    to run interactive provider TUI probes from inside that same provider's host
+    session; run a CLI refresh from a normal shell when you need that.
 - Treat usage rows as a provider-id map. They are not ordered and not ranked.
 - Inspect provider models before spawning when the model is not already chosen:
   - CLI: `agentpool models --provider <provider-id>`

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from agentpool.models import UsageStatus, UsageWindowKind
+from agentpool.usage import devin as devin_usage
 from agentpool.usage.probes import (
     CODEXBAR_PROVIDER_MAP,
     CODEXBAR_SAFE_SOURCE_MAP,
@@ -281,6 +282,26 @@ def test_devin_plan_status_request_contains_auth_and_top_up_flag() -> None:
     data = _encode_devin_plan_status_request("devin-session-token$abc")
     assert b"devin-session-token$abc" in data
     assert data.endswith(b"\x10\x01")
+
+
+def test_devin_usage_disables_interactive_fallback_for_mcp(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_plan_status(provider_id: str):
+        raise devin_usage.ProbeError("missing credentials")
+
+    def explode_tmux_probe(*args, **kwargs):
+        raise AssertionError("interactive Devin /usage fallback should not run")
+
+    monkeypatch.setattr(devin_usage.shutil, "which", lambda _: "/bin/devin")
+    monkeypatch.setattr(devin_usage, "_devin_plan_status_usage_snapshot", fail_plan_status)
+    monkeypatch.setattr(devin_usage, "_tmux_slash_usage_probe", explode_tmux_probe)
+
+    snapshot = devin_usage.devin_cli_usage_snapshot(
+        "devin-cli",
+        allow_interactive_fallback=False,
+    )
+
+    assert snapshot.status == UsageStatus.UNKNOWN
+    assert snapshot.raw["source"] == "interactive_probe_disabled"
 
 
 def test_parse_devin_plan_status_response() -> None:

@@ -40,11 +40,11 @@ def get_inventory(manager: SessionManager, include_usage: bool = True) -> dict[s
 def get_usage_snapshot(
     manager: SessionManager,
     provider_id: str | None = None,
-    refresh: bool = True,
+    refresh: bool = False,
     backend: str = "combined",
 ) -> dict[str, Any]:
     if refresh:
-        return manager.usage_snapshot(provider_id, backend=backend)
+        return manager.usage_snapshot(provider_id, backend=backend, allow_interactive=False)
     return manager.cached_usage_snapshot(provider_id)
 
 
@@ -54,7 +54,12 @@ def get_usage_summary(
     refresh: bool = False,
     backend: str = "combined",
 ) -> dict[str, Any]:
-    return manager.usage_summary(provider_id=provider_id, refresh=refresh, backend=backend)
+    return manager.usage_summary(
+        provider_id=provider_id,
+        refresh=refresh,
+        backend=backend,
+        allow_interactive=False,
+    )
 
 
 def get_provider_models(manager: SessionManager, provider_id: str | None = None) -> dict[str, Any]:

@@ -17,17 +17,30 @@ from agentpool.usage._common import (
     _clean_optional_string,
     _status_from_windows,
     unavailable,
+    unknown,
 )
 from agentpool.usage.provider_parsers import parse_devin_usage
 
 
-def devin_cli_usage_snapshot(provider_id: str, binary: str | None = None) -> CapacitySnapshot:
+def devin_cli_usage_snapshot(
+    provider_id: str,
+    binary: str | None = None,
+    *,
+    allow_interactive_fallback: bool = True,
+) -> CapacitySnapshot:
     executable = binary or shutil.which("devin")
     if not executable:
         return unavailable(provider_id, "Devin CLI is not installed.")
     try:
         return _devin_plan_status_usage_snapshot(provider_id)
     except ProbeError as exc:
+        if not allow_interactive_fallback:
+            return unknown(
+                provider_id,
+                "Devin plan-status API probe failed and interactive CLI /usage fallback "
+                f"is disabled for MCP callers: {exc}",
+                source="interactive_probe_disabled",
+            )
         fallback_warning = f"Devin plan-status API probe failed; fell back to CLI /usage: {exc}"
     snapshot = _tmux_slash_usage_probe(
         provider_id=provider_id,

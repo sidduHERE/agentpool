@@ -48,9 +48,10 @@ Removed MCP aliases:
 - `get_capacity_summary`
 - `get_cached_usage_snapshot`
 
-Use `get_usage_snapshot(refresh=false)` for cached snapshots. Use the `usage`
-toolset if you need `get_usage_summary`, `validate_model_catalog`, or
-`filter_candidates`.
+Use `get_usage_snapshot(refresh=false)` for cached snapshots; this is also the
+default. MCP refreshes intentionally avoid interactive provider TUI probes that
+could interfere with the host agent session. Use the `usage` toolset if you need
+`get_usage_summary`, `validate_model_catalog`, or `filter_candidates`.
 
 ## Opt-In Toolsets
 

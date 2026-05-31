@@ -439,7 +439,7 @@ def _suggested_next(window: Window, stats: dict[str, Any]) -> list[str]:
     if stats.get("walls", {}).get("avoided"):
         suggestions.append("Review provider distribution with agentpool usage-summary --json.")
     if stats.get("data_quality"):
-        suggestions.append("Refresh usage probes before the next delegation window (get_usage_snapshot refresh=true).")
+        suggestions.append("Refresh usage probes before the next delegation window from the CLI when possible.")
     return suggestions
 
 

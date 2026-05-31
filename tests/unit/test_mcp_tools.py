@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agentpool.config import AgentPoolConfig, StorageConfig
+from agentpool.config import AgentPoolConfig, ProviderConfig, StorageConfig
 from agentpool.mcp import tools
 from agentpool.mcp.resources import read_resource
-from agentpool.models import SpawnWorkerRequest, TmuxSessionRef, ToolError
+from agentpool.models import SpawnWorkerRequest, TmuxSessionRef, ToolError, UsageStatus
+from agentpool.providers.base import ClaudeCodeAdapter
+from agentpool.providers.registry import ProviderRegistry
 from agentpool.session_manager import SessionManager
 from agentpool.store import Store
 
@@ -56,13 +58,67 @@ def test_mcp_cached_usage_snapshot_reads_persisted_usage(tmp_path: Path) -> None
     )
     manager = SessionManager(config=config, store=Store(tmp_path / "agentpool.sqlite"), runtime=RecordingRuntime())  # type: ignore[arg-type]
 
-    live = tools.get_usage_snapshot(manager, provider_id="fake-question")
-    cached = tools.get_usage_snapshot(manager, provider_id="fake-question", refresh=False)
+    live = tools.get_usage_snapshot(manager, provider_id="fake-question", refresh=True)
+    cached = tools.get_usage_snapshot(manager, provider_id="fake-question")
 
     assert live["source"] == "live_probe"
     assert cached["source"] == "sqlite_cache"
     assert cached["snapshots"][0]["provider_id"] == "fake-question"
     assert cached["snapshots"][0]["status"] == "available"
+
+
+def test_mcp_usage_snapshot_defaults_to_cached_without_live_probe(tmp_path: Path) -> None:
+    class ExplodingRegistry:
+        def usage(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise AssertionError("MCP get_usage_snapshot should not refresh by default")
+
+        def descriptors(self, include_usage: bool = True):  # type: ignore[no-untyped-def]
+            return []
+
+    config = AgentPoolConfig(
+        storage=StorageConfig(
+            db_path=str(tmp_path / "agentpool.sqlite"),
+            artifact_root=str(tmp_path / "artifacts"),
+        )
+    )
+    manager = SessionManager(
+        config=config,
+        store=Store(tmp_path / "agentpool.sqlite"),
+        registry=ExplodingRegistry(),  # type: ignore[arg-type]
+        runtime=RecordingRuntime(),  # type: ignore[arg-type]
+    )
+
+    result = tools.get_usage_snapshot(manager, provider_id="claude-code")
+
+    assert result == {"snapshots": [], "source": "sqlite_cache"}
+
+
+def test_mcp_refresh_disables_interactive_claude_usage_probe(tmp_path: Path) -> None:
+    config = AgentPoolConfig(
+        storage=StorageConfig(
+            db_path=str(tmp_path / "agentpool.sqlite"),
+            artifact_root=str(tmp_path / "artifacts"),
+        )
+    )
+    adapter = ClaudeCodeAdapter(
+        "claude-code",
+        "Claude Code",
+        "claude-code",
+        ProviderConfig(binary_candidates=["/bin/echo"]),
+    )
+    manager = SessionManager(
+        config=config,
+        store=Store(tmp_path / "agentpool.sqlite"),
+        registry=ProviderRegistry({"claude-code": adapter}),
+        runtime=RecordingRuntime(),  # type: ignore[arg-type]
+    )
+
+    result = tools.get_usage_snapshot(manager, provider_id="claude-code", refresh=True, backend="native")
+    snapshot = result["snapshots"][0]
+
+    assert snapshot["provider_id"] == "claude-code"
+    assert snapshot["status"] == UsageStatus.UNKNOWN.value
+    assert snapshot["raw"]["source"] == "interactive_probe_disabled"
 
 
 def test_usage_summary_and_onboarding_resources(tmp_path: Path) -> None:
@@ -74,7 +130,7 @@ def test_usage_summary_and_onboarding_resources(tmp_path: Path) -> None:
     )
     manager = SessionManager(config=config, store=Store(tmp_path / "agentpool.sqlite"), runtime=RecordingRuntime())  # type: ignore[arg-type]
 
-    tools.get_usage_snapshot(manager, provider_id="fake-question")
+    tools.get_usage_snapshot(manager, provider_id="fake-question", refresh=True)
     summary = tools.get_usage_summary(manager)
 
     assert summary["source"] == "sqlite_cache"

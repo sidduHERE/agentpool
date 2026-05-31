@@ -121,8 +121,8 @@ def test_get_stats_scope_mine_filters_by_coordinator(tmp_path) -> None:
         created_at=NOW - timedelta(hours=2),
     )
 
-    mine = tools.get_stats(manager, window="7d", scope="mine")
-    all_stats = tools.get_stats(manager, window="7d", scope="all")
+    mine = tools.get_stats(manager, window="all", scope="mine")
+    all_stats = tools.get_stats(manager, window="all", scope="all")
 
     assert mine["scope"] == "mine"
     assert mine["coordinator_id"] == "coord_mine"

@@ -48,9 +48,11 @@ The default MCP surface is narrow:
 agentpool mcp
 ```
 
-It exposes inventory, cached/live usage snapshots, provider models, spawn,
-observe, send, interrupt, artifact manifest, transcript paging, collect, and
-terminate.
+It exposes inventory, cached usage snapshots, provider models, spawn, observe,
+send, interrupt, artifact manifest, transcript paging, collect, and terminate.
+Explicit MCP refreshes avoid interactive provider TUI probes so a host like
+Claude Code does not accidentally launch a nested Claude `/usage` UI inside
+itself.
 
 Opt into more:
 

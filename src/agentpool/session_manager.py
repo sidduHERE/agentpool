@@ -69,9 +69,18 @@ class SessionManager:
             "checked_at": utc_now_iso(),
         }
 
-    def usage_snapshot(self, provider_id: str | None = None, backend: str = "combined") -> dict[str, Any]:
+    def usage_snapshot(
+        self,
+        provider_id: str | None = None,
+        backend: str = "combined",
+        allow_interactive: bool = True,
+    ) -> dict[str, Any]:
         self.reconcile_sessions()
-        snapshots = self.registry.usage(provider_id, backend=backend)
+        snapshots = self.registry.usage(
+            provider_id,
+            backend=backend,
+            allow_interactive=allow_interactive,
+        )
         for snapshot in snapshots:
             self.store.save_usage_snapshot(snapshot)
         return {
@@ -88,11 +97,21 @@ class SessionManager:
             "source": "sqlite_cache",
         }
 
-    def usage_summary(self, provider_id: str | None = None, refresh: bool = False, backend: str = "combined") -> dict[str, Any]:
+    def usage_summary(
+        self,
+        provider_id: str | None = None,
+        refresh: bool = False,
+        backend: str = "combined",
+        allow_interactive: bool = True,
+    ) -> dict[str, Any]:
         self.reconcile_sessions()
         descriptors = self.registry.descriptors(include_usage=False)
         if refresh:
-            snapshots = self.registry.usage(provider_id, backend=backend)
+            snapshots = self.registry.usage(
+                provider_id,
+                backend=backend,
+                allow_interactive=allow_interactive,
+            )
             for snapshot in snapshots:
                 self.store.save_usage_snapshot(snapshot)
             source = "live_probe"

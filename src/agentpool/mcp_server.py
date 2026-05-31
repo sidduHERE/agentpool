@@ -112,7 +112,7 @@ def build_mcp_server(
         @server.tool(title="Get Usage Snapshot", structured_output=False)
         def get_usage_snapshot(
             provider_id: str | None = None,
-            refresh: bool = True,
+            refresh: bool = False,
             backend: str = "combined",
         ) -> dict[str, Any]:
             return call(tools.get_usage_snapshot, provider_id, refresh, backend)
