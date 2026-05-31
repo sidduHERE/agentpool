@@ -52,8 +52,12 @@ Removed MCP aliases:
 Use `get_usage_summary(refresh=false)` for the compact provider-capacity view.
 Use `get_usage_snapshot(refresh=false)` only when you need raw snapshots; cached
 mode is the default for both. MCP refreshes intentionally avoid interactive
-provider TUI probes that could interfere with the host agent session. Use the
-`usage` toolset if you need `validate_model_catalog` or `filter_candidates`.
+provider TUI probes that could interfere with the host agent session. Live MCP
+refreshes are also time bounded; a slow provider returns an unknown row and the
+response sets `partial=true` instead of letting the MCP connection sit open.
+Use the CLI for a complete live refresh from shell-capable coding agents. Use
+the `usage` toolset if you need `validate_model_catalog` or
+`filter_candidates`.
 
 ## Opt-In Toolsets
 

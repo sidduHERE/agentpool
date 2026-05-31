@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from agentpool.config import AgentPoolConfig, ProviderConfig, StorageConfig
 from agentpool.mcp import tools
 from agentpool.mcp.resources import read_resource
-from agentpool.models import SpawnWorkerRequest, TmuxSessionRef, ToolError, UsageStatus
+from agentpool.models import (
+    AuthStatus,
+    CapacitySnapshot,
+    Confidence,
+    ProviderDescriptor,
+    SpawnWorkerRequest,
+    TmuxSessionRef,
+    ToolError,
+    UsageStatus,
+)
 from agentpool.providers.base import ClaudeCodeAdapter
 from agentpool.providers.registry import ProviderRegistry
 from agentpool.session_manager import SessionManager
@@ -119,6 +129,56 @@ def test_mcp_refresh_disables_interactive_claude_usage_probe(tmp_path: Path) -> 
     assert snapshot["provider_id"] == "claude-code"
     assert snapshot["status"] == UsageStatus.UNKNOWN.value
     assert snapshot["raw"]["source"] == "interactive_probe_disabled"
+
+
+def test_mcp_refresh_returns_partial_on_provider_timeout(tmp_path: Path) -> None:
+    class SlowUsageAdapter:
+        id = "slow-cli"
+        display_name = "Slow CLI"
+        harness = "slow-cli"
+        config = ProviderConfig(binary_candidates=["slow"])
+
+        def detect(self) -> ProviderDescriptor:
+            time.sleep(0.2)
+            return ProviderDescriptor(
+                id=self.id,
+                display_name=self.display_name,
+                harness=self.harness,
+                installed=True,
+                auth=AuthStatus(status="authenticated", confidence=Confidence.LOCAL_CONFIG),
+            )
+
+        def usage_snapshot(self, *, allow_interactive: bool = True) -> CapacitySnapshot:
+            time.sleep(0.2)
+            return CapacitySnapshot(
+                provider_id=self.id,
+                status=UsageStatus.AVAILABLE,
+                confidence=Confidence.LOCAL_CONFIG,
+            )
+
+    config = AgentPoolConfig(
+        storage=StorageConfig(
+            db_path=str(tmp_path / "agentpool.sqlite"),
+            artifact_root=str(tmp_path / "artifacts"),
+        )
+    )
+    manager = SessionManager(
+        config=config,
+        store=Store(tmp_path / "agentpool.sqlite"),
+        registry=ProviderRegistry({"slow-cli": SlowUsageAdapter()}),  # type: ignore[arg-type]
+        runtime=RecordingRuntime(),  # type: ignore[arg-type]
+    )
+
+    started = time.monotonic()
+    snapshot_result = tools.get_usage_snapshot(manager, provider_id="slow-cli", refresh=True, timeout_seconds=0.01)
+    summary_result = tools.get_usage_summary(manager, provider_id="slow-cli", refresh=True, timeout_seconds=0.01)
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 0.15
+    assert snapshot_result["partial"] is True
+    assert snapshot_result["snapshots"][0]["raw"]["source"] == "agentpool_usage_timeout"
+    assert summary_result["partial"] is True
+    assert summary_result["providers"]["slow-cli"]["status"] == UsageStatus.UNKNOWN.value
 
 
 def test_usage_summary_and_onboarding_resources(tmp_path: Path) -> None:

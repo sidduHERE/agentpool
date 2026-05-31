@@ -4,7 +4,7 @@ Usage is best effort and confidence-tagged. Unknown is valid.
 
 Allowed confidence values include `official`, `local_cli`, `local_config`, `provider_warning`, `observed`, `user_configured`, and `unknown`. AgentPool does not fabricate exact quotas and does not scrape browser sessions in v0.1.
 
-Live probes are only run by explicit usage requests. Inventory remains non-invasive and reports whether a provider supports an explicit usage probe. Successful explicit probes are persisted to SQLite; `agentpool usage --cached`, `get_usage_summary(refresh=false)`, and `get_usage_snapshot(refresh=false)` read the latest persisted snapshots without refreshing providers. MCP refreshes do not run interactive provider TUI probes, because those can interfere with the host agent that is calling AgentPool.
+Live probes are only run by explicit usage requests. Inventory remains non-invasive and reports whether a provider supports an explicit usage probe. Successful explicit probes are persisted to SQLite; `agentpool usage --cached`, `get_usage_summary(refresh=false)`, and `get_usage_snapshot(refresh=false)` read the latest persisted snapshots without refreshing providers. MCP refreshes do not run interactive provider TUI probes, because those can interfere with the host agent that is calling AgentPool. MCP refreshes are also bounded by a short server-side budget; if a provider is slow, AgentPool returns a partial response with an unknown row instead of holding the MCP connection open.
 
 `agentpool usage-summary` returns a `providers` map keyed by provider id. The
 CLI `capacity-summary` command is a human convenience alias; MCP does not expose

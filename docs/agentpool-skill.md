@@ -18,7 +18,9 @@ need to delegate coding-agent work.
   - MCP: `get_usage_summary(refresh=false)` for compact cached state. Use
     `get_usage_snapshot` only when you need raw snapshots. Avoid asking MCP to
     run interactive provider TUI probes from inside that same provider's host
-    session; run a CLI refresh from a normal shell when you need that.
+    session; run a CLI refresh from a normal shell when you need a complete
+    live refresh. MCP `refresh=true` is bounded and can return `partial=true`
+    with unknown rows for slow providers.
 - Treat usage rows as a provider-id map. They are not ordered and not ranked.
 - Inspect provider models before spawning when the model is not already chosen:
   - CLI: `agentpool models --provider <provider-id>`

@@ -158,6 +158,9 @@ and the opt-in `get_usage_summary` tool.
 The default buffer is `policy.min_remaining_percent = 10`. If any reported
 quota window is below that buffer, the provider row is marked unusable for the
 summary. AgentPool still does not pick an alternative provider for you.
+MCP usage refreshes are intentionally bounded and may return `partial=true`;
+use the CLI commands above when a shell-capable agent needs a complete live
+refresh.
 
 ## Provider Matrix
 

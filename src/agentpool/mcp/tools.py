@@ -19,6 +19,8 @@ from agentpool.stats.card import render_stats_card
 from agentpool.stats.compute import compute_stats, filter_sections
 from agentpool.stats.window import parse_window
 
+MCP_USAGE_REFRESH_TIMEOUT_SECONDS = 25.0
+
 
 def structured_error(exc: ToolError) -> dict[str, Any]:
     return {"error": exc.error.model_dump(mode="json")}
@@ -42,9 +44,15 @@ def get_usage_snapshot(
     provider_id: str | None = None,
     refresh: bool = False,
     backend: str = "combined",
+    timeout_seconds: float = MCP_USAGE_REFRESH_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     if refresh:
-        return manager.usage_snapshot(provider_id, backend=backend, allow_interactive=False)
+        return manager.usage_snapshot(
+            provider_id,
+            backend=backend,
+            allow_interactive=False,
+            timeout_seconds=timeout_seconds,
+        )
     return manager.cached_usage_snapshot(provider_id)
 
 
@@ -53,12 +61,14 @@ def get_usage_summary(
     provider_id: str | None = None,
     refresh: bool = False,
     backend: str = "combined",
+    timeout_seconds: float = MCP_USAGE_REFRESH_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     return manager.usage_summary(
         provider_id=provider_id,
         refresh=refresh,
         backend=backend,
         allow_interactive=False,
+        timeout_seconds=timeout_seconds if refresh else None,
     )
 
 

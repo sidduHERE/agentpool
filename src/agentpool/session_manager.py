@@ -40,6 +40,35 @@ from agentpool.utils import append_jsonl, new_session_id, utc_now_iso, write_jso
 
 DEFAULT_SESSION_LIMIT = 50
 MAX_SESSION_LIMIT = 500
+PARTIAL_USAGE_SOURCES = {
+    "agentpool_usage_timeout",
+    "agentpool_usage_error",
+}
+PARTIAL_DESCRIPTOR_SOURCES = {
+    "agentpool_descriptor_timeout",
+    "agentpool_descriptor_error",
+}
+
+
+def _remaining_seconds(deadline: float | None) -> float | None:
+    if deadline is None:
+        return None
+    return max(0.001, deadline - time.monotonic())
+
+
+def _has_partial_usage(snapshots: list[Any]) -> bool:
+    return any(getattr(snapshot, "raw", {}).get("source") in PARTIAL_USAGE_SOURCES for snapshot in snapshots)
+
+
+def _has_partial_descriptors(descriptors: list[Any]) -> bool:
+    for descriptor in descriptors:
+        usage = getattr(descriptor, "usage", None)
+        if usage and getattr(usage, "raw", {}).get("source") in PARTIAL_DESCRIPTOR_SOURCES:
+            return True
+        metadata = getattr(descriptor, "metadata", {}) or {}
+        if metadata.get("agentpool_partial"):
+            return True
+    return False
 
 
 class SessionManager:
@@ -74,12 +103,14 @@ class SessionManager:
         provider_id: str | None = None,
         backend: str = "combined",
         allow_interactive: bool = True,
+        timeout_seconds: float | None = None,
     ) -> dict[str, Any]:
         self.reconcile_sessions()
         snapshots = self.registry.usage(
             provider_id,
             backend=backend,
             allow_interactive=allow_interactive,
+            timeout_seconds=timeout_seconds,
         )
         for snapshot in snapshots:
             self.store.save_usage_snapshot(snapshot)
@@ -87,6 +118,7 @@ class SessionManager:
             "snapshots": [snapshot.model_dump(mode="json") for snapshot in snapshots],
             "source": "live_probe",
             "backend": backend,
+            "partial": _has_partial_usage(snapshots),
         }
 
     def cached_usage_snapshot(self, provider_id: str | None = None) -> dict[str, Any]:
@@ -103,14 +135,20 @@ class SessionManager:
         refresh: bool = False,
         backend: str = "combined",
         allow_interactive: bool = True,
+        timeout_seconds: float | None = None,
     ) -> dict[str, Any]:
         self.reconcile_sessions()
-        descriptors = self.registry.descriptors(include_usage=False)
+        deadline = time.monotonic() + timeout_seconds if timeout_seconds is not None else None
+        descriptors = self.registry.descriptors(
+            include_usage=False,
+            timeout_seconds=_remaining_seconds(deadline),
+        )
         if refresh:
             snapshots = self.registry.usage(
                 provider_id,
                 backend=backend,
                 allow_interactive=allow_interactive,
+                timeout_seconds=_remaining_seconds(deadline),
             )
             for snapshot in snapshots:
                 self.store.save_usage_snapshot(snapshot)
@@ -127,6 +165,7 @@ class SessionManager:
             ),
             "source": source,
             "backend": backend if refresh else "cache",
+            "partial": _has_partial_usage(snapshots) or _has_partial_descriptors(descriptors),
         }
 
     def provider_models(self, provider_id: str | None = None) -> dict[str, Any]:

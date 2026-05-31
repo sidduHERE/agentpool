@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError, as_completed
+from typing import TypeVar
 
 from agentpool.config import AgentPoolConfig, ProviderConfig
-from agentpool.models import CapacitySnapshot, Confidence, ProviderDescriptor, ToolError, UsageStatus
+from agentpool.models import AuthStatus, CapacitySnapshot, Confidence, ProviderDescriptor, ToolError, UsageStatus
 from agentpool.providers.base import (
     ClaudeCodeAdapter,
     CodexCliAdapter,
@@ -60,13 +62,24 @@ class ProviderRegistry:
                 {"provider_id": provider_id},
             ) from exc
 
-    def descriptors(self, include_usage: bool = True) -> list[ProviderDescriptor]:
-        descriptors = []
-        for adapter in self.adapters.values():
-            descriptor = adapter.detect()
+    def descriptors(
+        self,
+        include_usage: bool = True,
+        timeout_seconds: float | None = None,
+    ) -> list[ProviderDescriptor]:
+        adapters = list(self.adapters.values())
+        if timeout_seconds is not None:
+            descriptors = _bounded_adapter_calls(
+                adapters,
+                lambda adapter: adapter.detect(),
+                timeout_seconds,
+                lambda adapter, exc: _descriptor_failure(adapter, timeout_seconds, exc),
+            )
+        else:
+            descriptors = [adapter.detect() for adapter in adapters]
+        for descriptor in descriptors:
             if not include_usage:
                 descriptor.usage = None
-            descriptors.append(descriptor)
         return descriptors
 
     def usage(
@@ -74,6 +87,7 @@ class ProviderRegistry:
         provider_id: str | None = None,
         backend: str = "native",
         allow_interactive: bool = True,
+        timeout_seconds: float | None = None,
     ) -> list[CapacitySnapshot]:
         if backend not in {"native", "codexbar", "ccusage", "combined"}:
             raise ToolError(
@@ -82,6 +96,13 @@ class ProviderRegistry:
                 {"backend": backend},
             )
         adapters = [self.get(provider_id)] if provider_id else list(self.adapters.values())
+        if timeout_seconds is not None:
+            return _bounded_adapter_calls(
+                adapters,
+                lambda adapter: _usage_for_adapter(adapter, backend, allow_interactive=allow_interactive),
+                timeout_seconds,
+                lambda adapter, exc: _usage_failure_snapshot(adapter, backend, timeout_seconds, exc),
+            )
         if len(adapters) <= 1:
             if not adapters:
                 return []
@@ -122,6 +143,95 @@ def _usage_for_adapter(
         ccusage = ccusage_usage_snapshot(adapter.id) if adapter.id == "claude-code" else None
         return combine_usage_snapshots(native, codexbar, ccusage=ccusage)
     return native
+
+
+T = TypeVar("T")
+
+
+def _bounded_adapter_calls(
+    adapters: list[ProviderAdapter],
+    call: Callable[[ProviderAdapter], T],
+    timeout_seconds: float,
+    failure_value: Callable[[ProviderAdapter, BaseException | None], T],
+) -> list[T]:
+    if not adapters:
+        return []
+    timeout = max(float(timeout_seconds), 0.001)
+    executor = ThreadPoolExecutor(max_workers=min(8, len(adapters)))
+    futures = {executor.submit(call, adapter): adapter for adapter in adapters}
+    results: dict[str, T] = {}
+    try:
+        for future in as_completed(futures, timeout=timeout):
+            adapter = futures[future]
+            try:
+                results[adapter.id] = future.result()
+            except Exception as exc:
+                results[adapter.id] = failure_value(adapter, exc)
+    except FutureTimeoutError:
+        pass
+    finally:
+        for future, adapter in futures.items():
+            if adapter.id in results:
+                continue
+            if future.done():
+                try:
+                    results[adapter.id] = future.result()
+                except Exception as exc:
+                    results[adapter.id] = failure_value(adapter, exc)
+                continue
+            future.cancel()
+            results[adapter.id] = failure_value(adapter, None)
+        executor.shutdown(wait=False, cancel_futures=True)
+    return [results[adapter.id] for adapter in adapters]
+
+
+def _descriptor_failure(
+    adapter: ProviderAdapter,
+    timeout_seconds: float,
+    exc: BaseException | None,
+) -> ProviderDescriptor:
+    reason = (
+        f"Provider detect exceeded the {timeout_seconds:g}s MCP refresh budget."
+        if exc is None
+        else f"Provider detect failed: {exc}"
+    )
+    return ProviderDescriptor(
+        id=adapter.id,
+        display_name=adapter.display_name,
+        harness=adapter.harness,
+        installed=False,
+        auth=AuthStatus(status="unknown", confidence=Confidence.UNKNOWN, reason=reason),
+        usage=CapacitySnapshot(
+            provider_id=adapter.id,
+            status=UsageStatus.UNKNOWN,
+            confidence=Confidence.UNKNOWN,
+            warnings=[reason],
+            raw={"source": "agentpool_descriptor_timeout" if exc is None else "agentpool_descriptor_error"},
+        ),
+        warnings=[reason],
+        metadata={"agentpool_partial": True},
+    )
+
+
+def _usage_failure_snapshot(
+    adapter: ProviderAdapter,
+    backend: str,
+    timeout_seconds: float,
+    exc: BaseException | None,
+) -> CapacitySnapshot:
+    if exc is None:
+        warning = f"Usage refresh exceeded the {timeout_seconds:g}s MCP refresh budget."
+        source = "agentpool_usage_timeout"
+    else:
+        warning = f"Usage refresh failed: {exc}"
+        source = "agentpool_usage_error"
+    return CapacitySnapshot(
+        provider_id=adapter.id,
+        status=UsageStatus.UNKNOWN,
+        confidence=Confidence.UNKNOWN,
+        warnings=[warning],
+        raw={"source": source, "backend": backend, "timeout_seconds": timeout_seconds},
+    )
 
 
 def build_registry(config: AgentPoolConfig) -> ProviderRegistry:
