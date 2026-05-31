@@ -10,7 +10,7 @@ Most users should not run that command by hand. Add it to your MCP host config,
 then let the host start AgentPool when needed.
 
 After setup, ask the agent to read `agentpool://skill.md`, then call
-`get_usage_snapshot(refresh=false)` and `get_provider_models()` before
+`get_usage_summary(refresh=false)` and `get_provider_models()` before
 delegating work. Coding agents with shell access should usually prefer the
 `agentpool` CLI because it keeps large worker output in artifact files.
 
@@ -258,7 +258,7 @@ Once connected, a good first prompt is:
 
 ```text
 Read agentpool://skill.md. Then call
-get_usage_snapshot(refresh=false), get_provider_models(), and get_inventory() before
+get_usage_summary(refresh=false), get_provider_models(), and get_inventory() before
 spawning any workers. After spawn_worker, use observe_worker for the worker
 control loop; do not poll get_session/list_sessions as a substitute. Use
 read_worker_transcript with offset/limit only when you need bounded transcript

@@ -21,6 +21,7 @@ from agentpool.store import Store
 
 DEFAULT_TOOLS = {
     "get_inventory",
+    "get_usage_summary",
     "get_usage_snapshot",
     "get_provider_models",
     "spawn_worker",

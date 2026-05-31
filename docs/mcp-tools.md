@@ -31,6 +31,7 @@ Unknown toolsets or tool names fail at server startup.
 The default toolset is the smallest worker lifecycle surface:
 
 - `get_inventory`
+- `get_usage_summary`
 - `get_usage_snapshot`
 - `get_provider_models`
 - `spawn_worker`
@@ -48,14 +49,15 @@ Removed MCP aliases:
 - `get_capacity_summary`
 - `get_cached_usage_snapshot`
 
-Use `get_usage_snapshot(refresh=false)` for cached snapshots; this is also the
-default. MCP refreshes intentionally avoid interactive provider TUI probes that
-could interfere with the host agent session. Use the `usage` toolset if you need
-`get_usage_summary`, `validate_model_catalog`, or `filter_candidates`.
+Use `get_usage_summary(refresh=false)` for the compact provider-capacity view.
+Use `get_usage_snapshot(refresh=false)` only when you need raw snapshots; cached
+mode is the default for both. MCP refreshes intentionally avoid interactive
+provider TUI probes that could interfere with the host agent session. Use the
+`usage` toolset if you need `validate_model_catalog` or `filter_candidates`.
 
 ## Opt-In Toolsets
 
-- `usage`: `get_usage_summary`, `validate_model_catalog`, `filter_candidates`
+- `usage`: `validate_model_catalog`, `filter_candidates`
 - `stats`: `get_stats`, `get_stats_card`
 - `sessions`: `list_sessions`, `get_session`, `attach_info`, `send_worker_keys`
 - `leases`: `acquire_file_lease`, `list_file_leases`, `release_file_lease`
@@ -74,7 +76,7 @@ metadata lookups, not substitutes for observation.
 
 Recommended loop:
 
-1. `get_usage_snapshot(provider_id=..., refresh=false)`
+1. `get_usage_summary(provider_id=..., refresh=false)`
 2. `get_provider_models(provider_id=...)`
 3. `spawn_worker(provider_id=..., model=..., repo_path=..., task=..., isolation="read_only")`
 4. `observe_worker(session_id=..., wait_for=["completed","error","question","approval_prompt"], timeout_seconds=120)`

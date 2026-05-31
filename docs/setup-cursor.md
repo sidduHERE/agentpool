@@ -47,5 +47,5 @@ See [docs/mcp-clients.md](mcp-clients.md) for other hosts.
 ## After Connect
 
 Ask Cursor to read `agentpool://skill.md`, then call
-`get_usage_snapshot(refresh=false)` and `get_provider_models()` before spawning
+`get_usage_summary(refresh=false)` and `get_provider_models()` before spawning
 workers.

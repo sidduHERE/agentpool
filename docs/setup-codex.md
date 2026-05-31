@@ -98,7 +98,7 @@ Then ask Codex:
 
 ```text
 Read agentpool://skill.md. Then call
-get_usage_snapshot(provider_id="codex-cli", refresh=false),
+get_usage_summary(provider_id="codex-cli", refresh=false),
 get_provider_models(provider_id="codex-cli"), and get_inventory before spawning
 any workers. After spawn_worker, use
 observe_worker for the worker control loop. If Codex shows an update prompt,

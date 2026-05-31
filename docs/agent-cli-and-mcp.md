@@ -48,8 +48,9 @@ The default MCP surface is narrow:
 agentpool mcp
 ```
 
-It exposes inventory, cached usage snapshots, provider models, spawn, observe,
-send, interrupt, artifact manifest, transcript paging, collect, and terminate.
+It exposes inventory, compact usage summaries, cached raw usage snapshots,
+provider models, spawn, observe, send, interrupt, artifact manifest, transcript
+paging, collect, and terminate.
 Explicit MCP refreshes avoid interactive provider TUI probes so a host like
 Claude Code does not accidentally launch a nested Claude `/usage` UI inside
 itself.
@@ -58,7 +59,7 @@ Opt into more:
 
 ```bash
 agentpool mcp --toolsets default,stats,sessions,leases,worktrees
-agentpool mcp --tools get_usage_summary
+agentpool mcp --tools validate_model_catalog
 AGENTPOOL_MCP_LOCKDOWN=1 agentpool mcp
 ```
 
