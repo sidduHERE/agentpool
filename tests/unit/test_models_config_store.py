@@ -227,6 +227,28 @@ def test_default_model_catalog_applies_provider_defaults() -> None:
     assert {model["id"] for model in config.providers["droid-cli"].models} >= {"glm-5.1", "gpt-5.5"}
 
 
+def test_load_config_drops_deprecated_gemini_cli_provider(tmp_path: Path) -> None:
+    config_path = tmp_path / "agentpool.yaml"
+    config_path.write_text(
+        """
+version: 1
+providers:
+  gemini-cli:
+    enabled: true
+    binary_candidates: [gemini]
+    models:
+      - id: gemini-3-flash-preview
+        source: config
+        confidence: observed
+""",
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert "gemini-cli" not in config.providers
+
+
 def test_stale_packaged_fake_provider_paths_are_repaired(tmp_path: Path) -> None:
     config_path = tmp_path / "config.yaml"
     stale_script = tmp_path / "old-venv" / "agentpool" / "fixtures" / "fake_agents" / "fake_question_agent.py"

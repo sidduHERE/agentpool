@@ -16,6 +16,12 @@ from agentpool.utils import expand_user_path
 DEFAULT_CONFIG_PATH = Path("~/.agentpool/config.yaml").expanduser()
 DEFAULT_MODEL_CATALOG_PATH = Path(__file__).with_name("provider_model_catalog.json")
 FAKE_AGENT_DIR = Path(__file__).with_name("fixtures") / "fake_agents"
+DEPRECATED_PROVIDER_IDS = {
+    "gemini-cli": (
+        "Gemini CLI has transitioned to Antigravity CLI; "
+        "AgentPool no longer exposes it as a supported provider."
+    ),
+}
 FAKE_PROVIDER_SCRIPTS = {
     "fake-question": "fake_question_agent.py",
     "fake-approval": "fake_approval_agent.py",
@@ -299,6 +305,7 @@ def load_config(path: Path | None = None) -> AgentPoolConfig:
     _refresh_provider_models_from_catalog(merged_config.providers, load_model_catalog(model_catalog_paths))
     merged = merged_config.model_dump(mode="json")
     _repair_packaged_fake_provider_paths(merged)
+    _drop_deprecated_providers(merged)
     return AgentPoolConfig.model_validate(merged)
 
 
@@ -321,6 +328,9 @@ def validate_config(config: AgentPoolConfig) -> dict[str, Any]:
         errors.append("providers.auto is not allowed")
     if "factory-droid" in config.providers:
         warnings.append("factory-droid is a PRD compatibility name; use droid-cli for the droid binary")
+    for provider_id, reason in DEPRECATED_PROVIDER_IDS.items():
+        if provider_id in config.providers:
+            warnings.append(f"{provider_id} is deprecated and ignored by load_config: {reason}")
     for provider_id, provider in config.providers.items():
         if provider.command is not None and not provider.command:
             errors.append(f"providers.{provider_id}.command must not be empty")
@@ -371,3 +381,11 @@ def _repair_packaged_fake_provider_paths(config: dict[str, Any]) -> None:
             continue
         provider["binary_candidates"] = [sys.executable]
         provider["command"] = [sys.executable, str(FAKE_AGENT_DIR / script)]
+
+
+def _drop_deprecated_providers(config: dict[str, Any]) -> None:
+    providers = config.get("providers")
+    if not isinstance(providers, dict):
+        return
+    for provider_id in DEPRECATED_PROVIDER_IDS:
+        providers.pop(provider_id, None)

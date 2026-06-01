@@ -2,8 +2,9 @@
 
 AgentPool helps you use every coding-agent subscription you pay for. It reads
 the live usage limits of each provider you have (Codex, Claude Code, Cursor,
-Copilot, Gemini, ...) so you can offload work to whichever still has headroom
-instead of stalling when your active subscription hits its 5-hour or weekly cap.
+Copilot, Devin, Droid, ...) so you can offload work to whichever still has
+headroom instead of stalling when your active subscription hits its 5-hour or
+weekly cap.
 It is a control plane for explicitly selected coding-agent CLIs: it does not
 route automatically and it does not choose a provider for you.
 

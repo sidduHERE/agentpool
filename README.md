@@ -3,8 +3,8 @@
 <!-- mcp-name: io.github.sidduHERE/agentpool -->
 
 You pay for several coding-agent subscriptions — Codex, Claude Code, Cursor,
-Copilot, Gemini — but you work in one at a time. The rest sit idle until your
-active provider hits its 5-hour or weekly limit, and then you stall.
+Copilot, Devin, Droid — but you work in one at a time. The rest sit idle until
+your active provider hits its 5-hour or weekly limit, and then you stall.
 
 AgentPool is a local Python CLI and MCP server that reads the live usage limits
 of every coding-agent subscription you have and lets you — or your primary
