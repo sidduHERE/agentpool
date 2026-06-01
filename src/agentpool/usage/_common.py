@@ -17,6 +17,7 @@ import certifi
 
 from agentpool.models import CapacitySnapshot, Confidence, TmuxSessionRef, UsageStatus, UsageWindow, UsageWindowKind
 from agentpool.runtimes.tmux import TmuxRuntime
+from agentpool.utils import run_capture, terminate_process_group
 
 
 class ProbeError(Exception):
@@ -65,34 +66,12 @@ def _urlopen(
     return urllib.request.urlopen(request, timeout=timeout, context=context)
 
 
-def _probe_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env.update(
-        {
-            "TERM": "dumb",
-            "NO_COLOR": "1",
-            "CLICOLOR": "0",
-            "FORCE_COLOR": "0",
-        }
-    )
-    return env
-
-
 def _run_probe_command(
     command: list[str],
     *,
     timeout: float,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        command,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-        start_new_session=True,
-        env=_probe_env(),
-    )
+    return run_capture(command, timeout=timeout, terminal_dumb=True)
 
 
 def _request_json(request: urllib.request.Request) -> dict[str, Any]:
@@ -248,12 +227,7 @@ def _clean_optional_string(value: object) -> str | None:
 
 
 def _terminate_process(proc: subprocess.Popen[str]) -> None:
-    if proc.poll() is None:
-        proc.terminate()
-        try:
-            proc.wait(timeout=1)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+    terminate_process_group(proc)
 
 
 def _safe_read_pipe(pipe: Any) -> str:

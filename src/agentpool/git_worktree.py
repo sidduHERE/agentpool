@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import subprocess
 from pathlib import Path
 
 from agentpool.models import ToolError
@@ -41,12 +39,9 @@ def create_worktree(repo_path: Path, provider_id: str, session_id: str) -> Path:
     parent.mkdir(parents=True, exist_ok=True)
     worktree_path = parent / session_id
     branch = agentpool_branch(provider_id, session_id)
-    proc = subprocess.run(
+    proc = run_capture(
         ["git", "worktree", "add", "-b", branch, str(worktree_path)],
-        cwd=str(repo_path),
-        text=True,
-        capture_output=True,
-        check=False,
+        cwd=repo_path,
     )
     if proc.returncode != 0:
         raise ToolError(
@@ -66,12 +61,9 @@ def delete_agentpool_branch(repo_path: Path, provider_id: str, session_id: str) 
     if not is_git_repo(repo_path):
         return {"deleted": False, "reason": "not_git_repo"}
     branch = agentpool_branch(provider_id, session_id)
-    proc = subprocess.run(
+    proc = run_capture(
         ["git", "branch", "-D", branch],
-        cwd=str(repo_path),
-        text=True,
-        capture_output=True,
-        check=False,
+        cwd=repo_path,
     )
     if proc.returncode != 0:
         return {"deleted": False, "branch": branch, "stderr": proc.stderr.strip()}
@@ -81,12 +73,9 @@ def delete_agentpool_branch(repo_path: Path, provider_id: str, session_id: str) 
 def list_agentpool_worktrees(repo_path: Path) -> list[dict[str, str | bool]]:
     if not is_git_repo(repo_path):
         return []
-    proc = subprocess.run(
+    proc = run_capture(
         ["git", "worktree", "list", "--porcelain"],
-        cwd=str(repo_path),
-        text=True,
-        capture_output=True,
-        check=False,
+        cwd=repo_path,
     )
     if proc.returncode != 0:
         return []
@@ -128,7 +117,7 @@ def cleanup_worktree(repo_path: Path, worktree_path: Path, force: bool = False) 
     if force:
         args.append("--force")
     args.append(str(worktree_path))
-    proc = subprocess.run(args, cwd=str(repo_path), text=True, capture_output=True, check=False)
+    proc = run_capture(args, cwd=repo_path)
     if proc.returncode != 0:
         raise ToolError(
             "WORKTREE_CLEANUP_FAILED",

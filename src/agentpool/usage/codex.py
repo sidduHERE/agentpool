@@ -20,6 +20,7 @@ from agentpool.usage._common import (
     unavailable,
     unknown,
 )
+from agentpool.utils import popen_text
 
 
 def codex_cli_usage_snapshot(provider_id: str, binary: str | None = None) -> CapacitySnapshot:
@@ -79,12 +80,9 @@ def parse_codex_rate_limits(provider_id: str, payload: dict[str, Any]) -> Capaci
 
 
 def _codex_rpc_rate_limits(executable: str) -> dict[str, Any]:
-    proc = subprocess.Popen(
+    proc = popen_text(
         [executable, "-s", "read-only", "-a", "untrusted", "app-server"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+        terminal_dumb=True,
     )
     try:
         _json_rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "agentpool", "version": "0.1.0"}}, 8.0)

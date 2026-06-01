@@ -3,10 +3,10 @@ from __future__ import annotations
 import os
 import signal
 import shutil
-import subprocess
 from pathlib import Path
 
 from agentpool.models import RuntimeKind, TmuxSessionRef, ToolError
+from agentpool.utils import run_capture
 
 
 class TmuxRuntime:
@@ -28,29 +28,22 @@ class TmuxRuntime:
         merged_env = os.environ.copy()
         if env:
             merged_env.update(env)
-        try:
-            subprocess.run(
-                [tmux, "new-session", "-d", "-s", session_name, "-c", str(cwd), *command],
-                env=merged_env,
-                text=True,
-                capture_output=True,
-                check=True,
-            )
-        except subprocess.CalledProcessError as exc:
+        proc = run_capture(
+            [tmux, "new-session", "-d", "-s", session_name, "-c", str(cwd), *command],
+            env=merged_env,
+        )
+        if proc.returncode != 0:
             raise ToolError(
                 "SPAWN_FAILED",
                 f"Failed to create tmux session {session_name}.",
-                {"stderr": exc.stderr, "stdout": exc.stdout, "command": command},
-            ) from exc
+                {"stderr": proc.stderr, "stdout": proc.stdout, "command": command},
+            )
         return TmuxSessionRef(session_name=session_name)
 
     def capture(self, ref: TmuxSessionRef, lines: int = 300) -> str:
         tmux = self.require_tmux()
-        proc = subprocess.run(
+        proc = run_capture(
             [tmux, "capture-pane", "-p", "-J", "-t", ref.target, "-S", f"-{lines}"],
-            text=True,
-            capture_output=True,
-            check=False,
         )
         if proc.returncode != 0:
             raise ToolError(
@@ -66,18 +59,27 @@ class TmuxRuntime:
             return
         tmux = self.require_tmux()
         buffer_name = f"agentpool-{ref.session_name}"
-        subprocess.run([tmux, "load-buffer", "-b", buffer_name, "-"], input=text, text=True, check=True)
-        subprocess.run([tmux, "paste-buffer", "-b", buffer_name, "-t", ref.target], check=True)
+        load = run_capture([tmux, "load-buffer", "-b", buffer_name, "-"], input_text=text)
+        if load.returncode != 0:
+            raise ToolError(
+                "TMUX_SEND_FAILED",
+                f"Could not load tmux paste buffer for {ref.target}.",
+                {"stderr": load.stderr},
+            )
+        paste = run_capture([tmux, "paste-buffer", "-b", buffer_name, "-t", ref.target])
+        if paste.returncode != 0:
+            raise ToolError(
+                "TMUX_SEND_FAILED",
+                f"Could not paste tmux buffer to {ref.target}.",
+                {"stderr": paste.stderr},
+            )
         if submit and not text.endswith("\n"):
             self.send_keys(ref, ["Enter"])
 
     def send_keys(self, ref: TmuxSessionRef, keys: list[str]) -> None:
         tmux = self.require_tmux()
-        proc = subprocess.run(
+        proc = run_capture(
             [tmux, "send-keys", "-t", ref.target, *keys],
-            text=True,
-            capture_output=True,
-            check=False,
         )
         if proc.returncode != 0:
             raise ToolError(
@@ -95,7 +97,7 @@ class TmuxRuntime:
     def terminate(self, ref: TmuxSessionRef) -> None:
         tmux = self.require_tmux()
         pgid = self._pane_process_group(ref)
-        subprocess.run([tmux, "kill-session", "-t", ref.session_name], check=False)
+        run_capture([tmux, "kill-session", "-t", ref.session_name])
         if pgid is not None:
             try:
                 os.killpg(pgid, signal.SIGTERM)
@@ -107,22 +109,16 @@ class TmuxRuntime:
     def exists(self, ref: TmuxSessionRef) -> bool:
         if not self.tmux_binary:
             return False
-        proc = subprocess.run(
+        proc = run_capture(
             [self.tmux_binary, "has-session", "-t", ref.session_name],
-            text=True,
-            capture_output=True,
-            check=False,
         )
         return proc.returncode == 0
 
     def _pane_process_group(self, ref: TmuxSessionRef) -> int | None:
         if not self.tmux_binary:
             return None
-        proc = subprocess.run(
+        proc = run_capture(
             [self.tmux_binary, "display-message", "-p", "-t", ref.target, "#{pane_pid}"],
-            text=True,
-            capture_output=True,
-            check=False,
         )
         if proc.returncode != 0:
             return None

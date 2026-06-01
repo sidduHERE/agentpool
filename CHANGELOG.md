@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.7 - 2026-06-01
+
+- Centralize non-interactive subprocess execution behind terminal-safe helpers.
+  Git, tmux client operations, provider detection, Cursor status checks, Codex
+  app-server probes, and external usage helpers now detach from the host TTY by
+  default.
+- Add a subprocess-safety regression test so new product code cannot introduce
+  raw `subprocess.run`/`Popen` calls outside the shared utility.
+
 ## 0.1.6 - 2026-06-01
 
 - Run external usage helper commands in isolated, non-interactive subprocess
