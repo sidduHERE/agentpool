@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.4 - 2026-05-31
+
+- Add Markdown delegation preferences at `~/.agentpool/preferences.md`, surfaced
+  through the CLI, MCP tools, MCP resources, inventory, usage summaries, model
+  listings, and spawn responses so agents can read one user-owned preference
+  source before choosing whether and how to use AgentPool.
+- Bound live MCP usage refreshes so slow provider probes return partial data
+  instead of hanging the host session.
+- Remove deprecated `gemini-cli` from the default provider set after Google's
+  transition to Antigravity CLI.
+
 ## 0.1.3 - 2026-05-29
 
 - Reposition docs and descriptions around the primary value: making full use of
