@@ -492,7 +492,8 @@ def privacy_doctor(manager: SessionManager) -> dict[str, Any]:
         },
         "usage_refresh": {
             "inventory_runs_live_usage_probes": False,
-            "live_usage_requires_explicit_refresh": True,
+            "live_usage_requires_explicit_refresh": manager.config.policy.usage_auto_refresh_after_seconds is None,
+            "summary_auto_refresh_after_seconds": manager.config.policy.usage_auto_refresh_after_seconds,
             "default_backend": "combined",
             "optional_backends": {
                 "codexbar": detect_codexbar(),

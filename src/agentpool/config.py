@@ -68,6 +68,7 @@ class PolicyConfig(BaseModel):
     default_isolation: str = "read_only"
     min_remaining_percent: int = 10
     usage_stale_after_seconds: int = 1800
+    usage_auto_refresh_after_seconds: int | None = None
     allowed_providers: list[str] = Field(default_factory=list)
     denied_providers: list[str] = Field(default_factory=list)
     block_on_usage_statuses: list[str] = Field(
@@ -326,6 +327,13 @@ def validate_config(config: AgentPoolConfig) -> dict[str, Any]:
         errors.append("policy.allow_auto_routing must stay false in AgentPool v0.1")
     if "auto" in config.providers:
         errors.append("providers.auto is not allowed")
+    if config.policy.usage_stale_after_seconds < 0:
+        errors.append("policy.usage_stale_after_seconds must be non-negative")
+    if (
+        config.policy.usage_auto_refresh_after_seconds is not None
+        and config.policy.usage_auto_refresh_after_seconds < 0
+    ):
+        errors.append("policy.usage_auto_refresh_after_seconds must be non-negative or null")
     if "factory-droid" in config.providers:
         warnings.append("factory-droid is a PRD compatibility name; use droid-cli for the droid binary")
     for provider_id, reason in DEPRECATED_PROVIDER_IDS.items():

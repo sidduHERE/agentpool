@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.8 - 2026-06-01
+
+- Treat stale usage snapshots as age metadata, not as an unusable-provider
+  reason. `usage-summary` still reports `stale` and `age_seconds`, but a stale
+  cache entry no longer overrides usable quota/status data.
+- Add optional `policy.usage_auto_refresh_after_seconds` for users who want
+  cached usage summaries to refresh automatically after a configured age.
+
 ## 0.1.7 - 2026-06-01
 
 - Centralize non-interactive subprocess execution behind terminal-safe helpers.

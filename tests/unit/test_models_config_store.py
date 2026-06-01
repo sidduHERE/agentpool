@@ -842,6 +842,85 @@ def test_cached_usage_summary_filters_removed_provider_aliases(tmp_path: Path) -
     assert "factory-droid" not in provider_ids
 
 
+def test_usage_summary_auto_refresh_is_opt_in_and_bounded(tmp_path: Path) -> None:
+    class RefreshingRegistry:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def descriptors(self, include_usage: bool = False, timeout_seconds: float | None = None):  # type: ignore[no-untyped-def]
+            return []
+
+        def usage(
+            self,
+            provider_id: str | None = None,
+            *,
+            backend: str = "combined",
+            allow_interactive: bool = True,
+            timeout_seconds: float | None = None,
+        ):  # type: ignore[no-untyped-def]
+            self.calls.append(
+                {
+                    "provider_id": provider_id,
+                    "backend": backend,
+                    "allow_interactive": allow_interactive,
+                    "timeout_seconds": timeout_seconds,
+                }
+            )
+            return [
+                CapacitySnapshot(
+                    provider_id="codex-cli",
+                    status=UsageStatus.AVAILABLE,
+                    confidence=Confidence.OFFICIAL,
+                    windows=[
+                        UsageWindow(
+                            name="5h",
+                            kind=UsageWindowKind.FIVE_HOUR,
+                            remaining_percent=90,
+                            confidence=Confidence.OFFICIAL,
+                        )
+                    ],
+                )
+            ]
+
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.policy.usage_auto_refresh_after_seconds = 1800
+    store = Store(tmp_path / "agentpool.sqlite")
+    store.save_usage_snapshot(
+        CapacitySnapshot(
+            provider_id="codex-cli",
+            status=UsageStatus.AVAILABLE,
+            confidence=Confidence.OFFICIAL,
+            checked_at=now_utc() - timedelta(hours=2),
+            windows=[
+                UsageWindow(
+                    name="5h",
+                    kind=UsageWindowKind.FIVE_HOUR,
+                    remaining_percent=80,
+                    confidence=Confidence.OFFICIAL,
+                )
+            ],
+        )
+    )
+    registry = RefreshingRegistry()
+    manager = SessionManager(config=config, store=store, registry=registry, runtime=RecordingRuntime())  # type: ignore[arg-type]
+
+    summary = manager.usage_summary(provider_id="codex-cli", refresh=False, backend="native", timeout_seconds=7)
+
+    assert summary["source"] == "live_probe"
+    assert summary["backend"] == "native"
+    assert summary["providers"]["codex-cli"]["usable"] is True
+    assert summary["providers"]["codex-cli"]["stale"] is False
+    assert registry.calls == [
+        {
+            "provider_id": "codex-cli",
+            "backend": "native",
+            "allow_interactive": True,
+            "timeout_seconds": pytest.approx(7, abs=0.1),
+        }
+    ]
+
+
 def test_failed_worktree_spawn_rolls_back_worktree_and_branch(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

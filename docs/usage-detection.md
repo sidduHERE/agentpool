@@ -9,10 +9,17 @@ Live probes are only run by explicit usage requests. Inventory remains non-invas
 `agentpool usage-summary` returns a `providers` map keyed by provider id. The
 CLI `capacity-summary` command is a human convenience alias; MCP does not expose
 a capacity alias. Each row includes `usable`, `unusable_reason`, `stale`, and
-`age_seconds`. `usable` is conservative: unknown, unauthenticated, unavailable,
-stale, untrusted-confidence, or below-buffer windows are unusable. The default
+`age_seconds`. `stale` is informational age metadata only; it does not by
+itself make a provider unusable. `usable` is derived from install/auth status,
+provider usage status, confidence, and reported quota windows. The default
 buffer is `policy.min_remaining_percent = 10`, and it applies to every reported
 quota window.
+
+Cached summary reads can optionally refresh themselves when old enough. Set
+`policy.usage_auto_refresh_after_seconds` to a non-negative number in
+`~/.agentpool/config.yaml` to refresh `usage-summary` / `get_usage_summary`
+when the cached summary data is missing or older than that threshold. Leave it
+as `null` to keep refreshes explicit.
 
 Usage windows carry a stable `kind` in addition to provider-specific names:
 

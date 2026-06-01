@@ -120,7 +120,7 @@ def test_usage_summary_auth_install_and_unknown_confidence_block_usable() -> Non
     assert summary["counts"]["usable"] == 0
 
 
-def test_usage_summary_marks_stale_snapshots_unusable() -> None:
+def test_usage_summary_reports_stale_without_blocking_usable() -> None:
     snapshot = CapacitySnapshot(
         provider_id="codex-cli",
         status=UsageStatus.AVAILABLE,
@@ -138,9 +138,10 @@ def test_usage_summary_marks_stale_snapshots_unusable() -> None:
 
     summary = build_usage_summary([snapshot], stale_after_seconds=1800, provider_descriptors=[_descriptor("codex-cli")])
 
-    assert summary["providers"]["codex-cli"]["usable"] is False
-    assert summary["providers"]["codex-cli"]["unusable_reason"] == "usage_stale"
-    assert summary["providers"]["codex-cli"]["stale"] is True
+    row = summary["providers"]["codex-cli"]
+    assert row["usable"] is True
+    assert row["unusable_reason"] is None
+    assert row["stale"] is True
 
 
 def _descriptor(provider_id: str, installed: bool = True, auth_status: str = "authenticated") -> ProviderDescriptor:

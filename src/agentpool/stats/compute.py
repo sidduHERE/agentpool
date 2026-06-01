@@ -457,9 +457,8 @@ def _snapshot_usability(
         }
         for window in snapshot.windows
     ]
-    age_seconds = max(0.0, (at - _ensure_utc(snapshot.checked_at)).total_seconds())
-    stale = age_seconds > stale_after_seconds
-    return _usable_reason(snapshot, windows, min_remaining_percent, descriptor, stale)
+    _ = stale_after_seconds
+    return _usable_reason(snapshot, windows, min_remaining_percent, descriptor)
 
 
 def _is_quota_unusable_reason(reason: str | None) -> bool:

@@ -68,7 +68,7 @@ def get_usage_summary(
         refresh=refresh,
         backend=backend,
         allow_interactive=False,
-        timeout_seconds=timeout_seconds if refresh else None,
+        timeout_seconds=timeout_seconds,
     )
 
 

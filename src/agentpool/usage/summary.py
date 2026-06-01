@@ -65,7 +65,7 @@ def _provider_summary(
     ]
     age_seconds = max(0.0, (now - snapshot.checked_at).total_seconds())
     stale = age_seconds > stale_after_seconds
-    usable, unusable_reason = _usable_reason(snapshot, windows, min_remaining_percent, descriptor, stale)
+    usable, unusable_reason = _usable_reason(snapshot, windows, min_remaining_percent, descriptor)
     return {
         "provider_id": snapshot.provider_id,
         "status": snapshot.status.value if hasattr(snapshot.status, "value") else str(snapshot.status),
@@ -90,7 +90,6 @@ def _usable_reason(
     windows: list[dict[str, Any]],
     min_remaining_percent: int,
     descriptor: ProviderDescriptor | None,
-    stale: bool,
 ) -> tuple[bool, str | None]:
     if descriptor and not descriptor.installed:
         return False, "not_installed"
@@ -110,8 +109,6 @@ def _usable_reason(
     }
     if confidence not in allowed_confidence:
         return False, f"confidence_{confidence}"
-    if stale:
-        return False, "usage_stale"
     for window in windows:
         remaining = window["remaining_percent"]
         if remaining is not None and remaining < min_remaining_percent:

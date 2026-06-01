@@ -150,14 +150,18 @@ agentpool usage-summary --refresh --backend ccusage --provider claude-code --jso
 
 `usage-summary` returns a `providers` object keyed by provider id. It is not
 ordered and it is not a recommendation list. Each row includes `usable`,
-`unusable_reason`, quota windows, confidence, staleness, and reset timing when
+`unusable_reason`, quota windows, confidence, age/staleness, and reset timing when
 the provider exposes it. The older CLI `capacity-summary` command is retained
 as a human convenience alias; the MCP surface only exposes `get_usage_snapshot`
 and the opt-in `get_usage_summary` tool.
 
 The default buffer is `policy.min_remaining_percent = 10`. If any reported
 quota window is below that buffer, the provider row is marked unusable for the
-summary. AgentPool still does not pick an alternative provider for you.
+summary. Staleness is reported as age information only; it does not by itself
+make a provider unusable. If you want cached summary reads to refresh
+automatically after a threshold, set `policy.usage_auto_refresh_after_seconds`
+in `~/.agentpool/config.yaml`.
+AgentPool still does not pick an alternative provider for you.
 MCP usage refreshes are intentionally bounded and may return `partial=true`;
 use the CLI commands above when a shell-capable agent needs a complete live
 refresh.

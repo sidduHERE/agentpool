@@ -155,9 +155,22 @@ class SessionManager:
             for snapshot in snapshots:
                 self.store.save_usage_snapshot(snapshot)
             source = "live_probe"
+            summary_backend = backend
         else:
             snapshots = self._configured_usage_snapshots(self.store.latest_usage_snapshots(provider_id), provider_id)
             source = "sqlite_cache"
+            summary_backend = "cache"
+            if self._usage_summary_should_auto_refresh(snapshots, provider_id):
+                snapshots = self.registry.usage(
+                    provider_id,
+                    backend=backend,
+                    allow_interactive=allow_interactive,
+                    timeout_seconds=_remaining_seconds(deadline),
+                )
+                for snapshot in snapshots:
+                    self.store.save_usage_snapshot(snapshot)
+                source = "live_probe"
+                summary_backend = backend
         return {
             **build_usage_summary(
                 snapshots,
@@ -167,7 +180,7 @@ class SessionManager:
             ),
             "preferences": preferences_reference(),
             "source": source,
-            "backend": backend if refresh else "cache",
+            "backend": summary_backend,
             "partial": _has_partial_usage(snapshots) or _has_partial_descriptors(descriptors),
         }
 
@@ -864,6 +877,26 @@ class SessionManager:
             return snapshots
         configured = set(self.config.providers)
         return [snapshot for snapshot in snapshots if snapshot.provider_id in configured]
+
+    def _usage_summary_should_auto_refresh(self, snapshots: list[Any], provider_id: str | None = None) -> bool:
+        threshold = self.config.policy.usage_auto_refresh_after_seconds
+        if threshold is None:
+            return False
+        if provider_id and not snapshots:
+            return True
+        if not provider_id:
+            configured = set(self.config.providers)
+            seen = {snapshot.provider_id for snapshot in snapshots}
+            if not configured.issubset(seen):
+                return True
+        now = datetime.now(timezone.utc)
+        for snapshot in snapshots:
+            checked_at = snapshot.checked_at
+            if checked_at.tzinfo is None:
+                checked_at = checked_at.replace(tzinfo=timezone.utc)
+            if max(0.0, (now - checked_at).total_seconds()) > threshold:
+                return True
+        return False
 
     def _enforce_deadline(self, session: AgentSession) -> ObserveWorkerResponse | None:
         deadline_at = session.metadata.get("deadline_at")

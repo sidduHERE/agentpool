@@ -27,6 +27,9 @@ need to delegate coding-agent work.
     live refresh. MCP `refresh=true` is bounded and can return `partial=true`
     with unknown rows for slow providers.
 - Treat usage rows as a provider-id map. They are not ordered and not ranked.
+- Treat `stale` and `age_seconds` as age metadata, not as an instruction to
+  avoid a provider. If the user configured usage auto-refresh, cached summary
+  reads may refresh themselves before returning.
 - Inspect provider models before spawning when the model is not already chosen:
   - CLI: `agentpool models --provider <provider-id>`
   - MCP: `get_provider_models(provider_id=...)`
