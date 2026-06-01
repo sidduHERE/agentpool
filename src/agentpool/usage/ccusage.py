@@ -13,6 +13,7 @@ from agentpool.usage._common import (
     _extract_json_payload,
     _number,
     _parse_datetime,
+    _run_probe_command,
     unavailable,
     unknown,
 )
@@ -24,7 +25,7 @@ def detect_ccusage(binary: str | None = None) -> dict[str, Any]:
         return {"installed": False, "path": None, "version": None, "safe_source": "local_claude_code_logs"}
     version = None
     try:
-        proc = subprocess.run([*command, "--version"], capture_output=True, text=True, timeout=5, check=False)
+        proc = _run_probe_command([*command, "--version"], timeout=5)
         if proc.returncode == 0:
             version = (proc.stdout or proc.stderr).strip().splitlines()[0][:200]
     except (OSError, subprocess.TimeoutExpired):
@@ -48,13 +49,7 @@ def ccusage_usage_snapshot(provider_id: str, binary: str | None = None) -> Capac
             "ccusage CLI is not installed. Set AGENTPOOL_CCUSAGE_COMMAND to an explicit command if desired.",
         )
     try:
-        proc = subprocess.run(
-            [*command, "blocks", "--json", "--offline", "--active", "--no-color"],
-            capture_output=True,
-            text=True,
-            timeout=45,
-            check=False,
-        )
+        proc = _run_probe_command([*command, "blocks", "--json", "--offline", "--active", "--no-color"], timeout=45)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return unknown(provider_id, f"ccusage probe failed: {exc}", source="ccusage")
     text = "\n".join(part for part in [proc.stdout, proc.stderr] if part)

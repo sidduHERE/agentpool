@@ -13,6 +13,7 @@ from agentpool.usage._common import (
     _int_number,
     _number,
     _parse_datetime,
+    _run_probe_command,
     _status_from_windows,
     _clean_optional_string,
     unavailable,
@@ -48,7 +49,7 @@ def detect_codexbar(binary: str | None = None) -> dict[str, Any]:
         }
     version = None
     try:
-        proc = subprocess.run([executable, "--version"], capture_output=True, text=True, timeout=3, check=False)
+        proc = _run_probe_command([executable, "--version"], timeout=3)
         if proc.returncode == 0:
             version = (proc.stdout or proc.stderr).strip().splitlines()[0][:200]
     except (OSError, subprocess.TimeoutExpired):
@@ -93,7 +94,7 @@ def codexbar_usage_snapshot(
         "--no-color",
     ]
     try:
-        proc = subprocess.run(command, capture_output=True, text=True, timeout=45, check=False)
+        proc = _run_probe_command(command, timeout=45)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return unknown(provider_id, f"CodexBar usage probe failed: {exc}", source="codexbar")
     text = "\n".join(part for part in [proc.stdout, proc.stderr] if part)

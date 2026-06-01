@@ -14,6 +14,7 @@ from agentpool.usage._common import (
     _number,
     _parse_datetime,
     _request_json,
+    _run_probe_command,
     _status_from_windows,
     unknown,
 )
@@ -94,7 +95,7 @@ def _copilot_token() -> tuple[str, str] | None:
     gh = shutil.which("gh")
     if not gh:
         return None
-    proc = subprocess.run([gh, "auth", "token"], text=True, capture_output=True, timeout=5, check=False)
+    proc = _run_probe_command([gh, "auth", "token"], timeout=5)
     token = proc.stdout.strip()
     if proc.returncode == 0 and token:
         return token, "gh auth token"

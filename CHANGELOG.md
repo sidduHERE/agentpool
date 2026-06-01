@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.6 - 2026-06-01
+
+- Run external usage helper commands in isolated, non-interactive subprocess
+  sessions so CodexBar/ccusage/GitHub CLI probes cannot inherit or disturb the
+  MCP host terminal.
+
 ## 0.1.5 - 2026-05-31
 
 - Use a certifi-backed TLS context for native usage HTTP probes so uv-tool

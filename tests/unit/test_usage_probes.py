@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import ssl
+import subprocess
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
@@ -305,6 +306,32 @@ def test_usage_http_requests_use_certifi_context(monkeypatch: pytest.MonkeyPatch
     assert payload == {"ok": True}
     assert seen["timeout"] == 10
     assert isinstance(seen["context"], ssl.SSLContext)
+
+
+def test_usage_probe_subprocesses_are_tty_isolated(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, "{}", "")
+
+    monkeypatch.setattr(usage_common.subprocess, "run", fake_run)
+
+    result = usage_common._run_probe_command(["codexbar", "usage"], timeout=7)
+
+    assert result.returncode == 0
+    assert seen["stdin"] is subprocess.DEVNULL
+    assert seen["capture_output"] is True
+    assert seen["text"] is True
+    assert seen["timeout"] == 7
+    assert seen["check"] is False
+    assert seen["start_new_session"] is True
+    env = seen["env"]
+    assert isinstance(env, dict)
+    assert env["TERM"] == "dumb"
+    assert env["NO_COLOR"] == "1"
+    assert env["CLICOLOR"] == "0"
+    assert env["FORCE_COLOR"] == "0"
 
 
 def test_devin_plan_status_request_contains_auth_and_top_up_flag() -> None:
