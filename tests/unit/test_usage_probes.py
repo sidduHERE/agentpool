@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import ssl
+import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from agentpool.models import UsageStatus, UsageWindowKind
+from agentpool.usage import _common as usage_common
 from agentpool.usage import devin as devin_usage
 from agentpool.usage.probes import (
     CODEXBAR_PROVIDER_MAP,
@@ -276,6 +279,32 @@ def test_parse_copilot_legacy_monthly_limited_counts() -> None:
     assert snapshot.status == UsageStatus.NEAR_LIMIT
     assert snapshot.windows[0].name == "premium_interactions"
     assert snapshot.windows[0].remaining_percent == 10
+
+
+def test_usage_http_requests_use_certifi_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    class Response:
+        def __enter__(self) -> "Response":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"{\"ok\": true}"
+
+    def fake_urlopen(request: urllib.request.Request, **kwargs: object) -> Response:
+        seen.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr(usage_common.urllib.request, "urlopen", fake_urlopen)
+
+    payload = usage_common._request_json(urllib.request.Request("https://example.test/usage"))
+
+    assert payload == {"ok": True}
+    assert seen["timeout"] == 10
+    assert isinstance(seen["context"], ssl.SSLContext)
 
 
 def test_devin_plan_status_request_contains_auth_and_top_up_flag() -> None:

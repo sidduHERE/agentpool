@@ -14,6 +14,7 @@ from agentpool.usage._common import (
     _epoch_seconds,
     _number,
     _tmux_slash_usage_probe,
+    _urlopen,
     _clean_optional_string,
     _status_from_windows,
     unavailable,
@@ -79,7 +80,7 @@ def _devin_plan_status_usage_snapshot(provider_id: str) -> CapacitySnapshot:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with _urlopen(request, timeout=10) as response:
             data = response.read()
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500].replace(token, "<redacted>")

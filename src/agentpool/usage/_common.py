@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import subprocess
 import tempfile
 import time
@@ -11,6 +12,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+import certifi
 
 from agentpool.models import CapacitySnapshot, Confidence, TmuxSessionRef, UsageStatus, UsageWindow, UsageWindowKind
 from agentpool.runtimes.tmux import TmuxRuntime
@@ -53,9 +56,18 @@ def _extract_json_payload(text: str) -> Any:
     raise ProbeError("No JSON payload found." if not errors else f"No parseable JSON payload found: {errors[-1]}")
 
 
+def _urlopen(
+    request: urllib.request.Request,
+    *,
+    timeout: float = 10,
+) -> Any:
+    context = ssl.create_default_context(cafile=certifi.where())
+    return urllib.request.urlopen(request, timeout=timeout, context=context)
+
+
 def _request_json(request: urllib.request.Request) -> dict[str, Any]:
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with _urlopen(request, timeout=10) as response:
             data = response.read()
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500]

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.5 - 2026-05-31
+
+- Use a certifi-backed TLS context for native usage HTTP probes so uv-tool
+  installs on macOS can reach GitHub Copilot and Devin APIs reliably.
+
 ## 0.1.4 - 2026-05-31
 
 - Add Markdown delegation preferences at `~/.agentpool/preferences.md`, surfaced
