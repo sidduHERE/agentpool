@@ -31,6 +31,7 @@ from agentpool.models import (
     ToolError,
 )
 from agentpool.policy import active_state, enforce_raw_keys_policy, enforce_spawn_policy
+from agentpool.preferences import preferences_payload, preferences_reference
 from agentpool.providers.registry import ProviderRegistry, build_registry
 from agentpool.redaction import redact_text
 from agentpool.runtimes.tmux import TmuxRuntime
@@ -94,6 +95,7 @@ class SessionManager:
         self.reconcile_sessions()
         return {
             "providers": [p.model_dump(mode="json") for p in self.registry.descriptors(include_usage)],
+            "preferences": preferences_reference(),
             "policy": self.config.policy.model_dump(mode="json"),
             "checked_at": utc_now_iso(),
         }
@@ -163,10 +165,14 @@ class SessionManager:
                 stale_after_seconds=self.config.policy.usage_stale_after_seconds,
                 provider_descriptors=descriptors,
             ),
+            "preferences": preferences_reference(),
             "source": source,
             "backend": backend if refresh else "cache",
             "partial": _has_partial_usage(snapshots) or _has_partial_descriptors(descriptors),
         }
+
+    def preferences(self) -> dict[str, Any]:
+        return preferences_payload(include_text=True)
 
     def provider_models(self, provider_id: str | None = None) -> dict[str, Any]:
         rows = []
@@ -197,7 +203,7 @@ class SessionManager:
                 f"Provider {provider_id} is not configured.",
                 {"provider_id": provider_id},
             )
-        return {"providers": rows}
+        return {"providers": rows, "preferences": preferences_reference()}
 
     def filter_candidates(
         self,
@@ -384,6 +390,7 @@ class SessionManager:
             "session_id": session.id,
             "session": session.model_dump(mode="json"),
             "attach_command": self.runtime.attach_command(ref),
+            "preferences": preferences_reference(),
             "live_control": {
                 "can_capture_screen": True,
                 "can_send_message": True,

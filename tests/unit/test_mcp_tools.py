@@ -196,8 +196,10 @@ def test_usage_summary_and_onboarding_resources(tmp_path: Path) -> None:
     assert summary["source"] == "sqlite_cache"
     assert summary["counts"]["available"] >= 1
     assert "fake-question" in summary["providers"]
+    assert summary["preferences"]["resource_uri"] == "agentpool://preferences.md"
     assert "AgentPool Onboarding" in read_resource(manager, "agentpool://onboarding")
     assert "AgentPool Skill" in read_resource(manager, "agentpool://skill.md")
+    assert "AgentPool Preferences" in read_resource(manager, "agentpool://preferences.md")
 
 
 def test_mcp_provider_models_and_resources(tmp_path: Path) -> None:
@@ -210,9 +212,12 @@ def test_mcp_provider_models_and_resources(tmp_path: Path) -> None:
     manager = SessionManager(config=config, store=Store(tmp_path / "agentpool.sqlite"))
 
     models = tools.get_provider_models(manager, provider_id="codex-cli")
+    preferences = tools.get_delegation_preferences(manager)
     validation = tools.validate_model_catalog(manager)
 
     assert models["providers"][0]["default_model"] == "gpt-5.5"
+    assert models["preferences"]["resource_uri"] == "agentpool://preferences.md"
+    assert "AgentPool Preferences" in preferences["text"]
     assert validation["ok"] is True
 
 

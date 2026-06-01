@@ -36,6 +36,7 @@ from agentpool.onboarding import (
     setup_all_providers,
     setup_provider,
 )
+from agentpool.preferences import PREFERENCES_PATH, ensure_preferences_file, preferences_payload
 from agentpool.mcp import tools as mcp_tools
 from agentpool.session_manager import SessionManager
 from agentpool.stats.card import render_stats_card
@@ -191,6 +192,10 @@ def init_command(
         return
     status = "wrote" if data["changed"] else "exists"
     console.print(f"config {status}: {data['config_path']}")
+    preferences = data.get("preferences") or {}
+    if preferences:
+        preferences_status = "wrote" if preferences.get("changed") else "exists"
+        console.print(f"preferences {preferences_status}: {preferences['path']}")
     if data.get("backup_path"):
         console.print(f"backup: {data['backup_path']}")
     console.print("next:")
@@ -264,6 +269,7 @@ def inventory(json_output: Annotated[bool, typer.Option("--json", help="Emit JSO
                 provider["usage"]["status"] if provider.get("usage") else "unknown",
             )
         console.print(table)
+        console.print(f"preferences: {data['preferences']['path']}")
 
 
 @app.command(help="Show a provider usage snapshot (cached or freshly probed).")
@@ -316,6 +322,7 @@ def usage_summary(
             )
         console.print(f"source: {data['source']}")
         console.print(table)
+        console.print(f"preferences: {data['preferences']['path']}")
     except ToolError as exc:
         handle_tool_error(exc, json_output)
 
@@ -441,6 +448,7 @@ def onboard(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.
         "config_path": str(DEFAULT_CONFIG_PATH),
         "db_path": str(mgr.config.storage.db),
         "artifact_root": str(mgr.config.storage.artifacts),
+        "preferences": preferences_payload(include_text=False),
         "usage_backends": {
             "default": "combined",
             "available": ["native", "codexbar", "ccusage", "combined"],
@@ -459,6 +467,7 @@ def onboard(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.
         "mcp_resources": [
             "agentpool://onboarding",
             "agentpool://skill.md",
+            "agentpool://preferences.md",
             "agentpool://sessions/{session_id}/transcript",
             "agentpool://sessions/{session_id}/events",
             "agentpool://artifacts/{session_id}",
@@ -480,6 +489,7 @@ def onboard(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.
     console.print(f"config: {data['config_path']}")
     console.print(f"db: {data['db_path']}")
     console.print(f"artifacts: {data['artifact_root']}")
+    console.print(f"preferences: {data['preferences']['path']}")
     codexbar = data["usage_backends"]["codexbar"]
     console.print(f"codexbar: {'installed' if codexbar['installed'] else 'not installed'}")
     console.print("\nFirst commands:")
@@ -490,6 +500,61 @@ def onboard(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.
         console.print(f"  {resource}")
     console.print("\nHost config:")
     console.print_json(json.dumps(data["mcp_host_config"]))
+
+
+@app.command("preferences", help="Show or initialize the user-owned AgentPool preferences file.")
+def preferences_command(
+    action: Annotated[
+        str,
+        typer.Argument(help="Action: show, init, or path."),
+    ] = "show",
+    path: Annotated[
+        Path,
+        typer.Option("--path", help="Preferences path. Defaults to ~/.agentpool/preferences.md."),
+    ] = PREFERENCES_PATH,
+    force: Annotated[bool, typer.Option("--force", help="Back up and overwrite during init.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+) -> None:
+    """Show or create the Markdown preferences agents should read before delegation.
+
+    Examples:
+      agentpool preferences
+      agentpool preferences init
+      agentpool preferences --json
+      agentpool preferences path
+    """
+    action = action.strip().lower()
+    if action == "path":
+        data = {"path": str(path.expanduser()), "resource_uri": "agentpool://preferences.md"}
+        if json_output:
+            console.print_json(json.dumps(data, default=str))
+        else:
+            console.print(data["path"])
+        return
+    if action == "init":
+        data = ensure_preferences_file(path, force=force)
+    elif action == "show":
+        data = preferences_payload(path, include_text=True)
+    else:
+        handle_tool_error(
+            ToolError(
+                "INVALID_REQUEST",
+                "Preferences action must be one of: show, init, path.",
+                {"example": "agentpool preferences init"},
+            ),
+            json_output,
+        )
+        return
+    if json_output:
+        console.print_json(json.dumps(data, default=str))
+        return
+    if action == "init":
+        status = "wrote" if data["changed"] else "exists"
+        console.print(f"preferences {status}: {data['path']}")
+        if data.get("backup_path"):
+            console.print(f"backup: {data['backup_path']}")
+        return
+    console.print(data["text"], end="" if str(data["text"]).endswith("\n") else "\n")
 
 
 @app.command()
@@ -542,10 +607,16 @@ def smoke(
 def providers(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
     data = manager().inventory(include_usage=False)
     if json_output:
-        console.print_json(json.dumps({"providers": data["providers"]}, default=str))
+        console.print_json(
+            json.dumps(
+                {"providers": data["providers"], "preferences": data["preferences"]},
+                default=str,
+            )
+        )
     else:
         for provider in data["providers"]:
             console.print(provider["id"])
+        console.print(f"preferences: {data['preferences']['path']}")
 
 
 @app.command("models", help="List the model catalog, or validate it with 'models validate'.")
@@ -580,9 +651,10 @@ def models_command(
         if not data["ok"]:
             raise typer.Exit(1)
         return
-    rows = mgr.provider_models(provider)["providers"]
+    data = mgr.provider_models(provider)
+    rows = data["providers"]
     if json_output:
-        console.print_json(json.dumps({"providers": rows}, default=str))
+        console.print_json(json.dumps(data, default=str))
         return
     if provider:
         row = rows[0]
@@ -609,6 +681,7 @@ def models_command(
                 reasoning_text,
             )
         console.print(table)
+        console.print(f"preferences: {data['preferences']['path']}")
         return
     table = Table("Provider", "Default", "Smoke", "Selection", "Models", "Catalog")
     for row in rows:
@@ -621,6 +694,7 @@ def models_command(
             str(row["catalog_completeness"] or ""),
         )
     console.print(table)
+    console.print(f"preferences: {data['preferences']['path']}")
 
 
 @app.command()
@@ -853,6 +927,7 @@ def spawn(
         else:
             console.print(data["session"]["id"])
             console.print(data["attach_command"])
+            console.print(f"preferences: {data['preferences']['path']}")
     except ToolError as exc:
         handle_tool_error(exc, json_output)
 

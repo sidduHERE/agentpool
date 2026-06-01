@@ -14,6 +14,7 @@ import yaml
 
 from agentpool.config import load_config
 from agentpool.models import ObserveEvent, SessionState, SpawnWorkerRequest, ToolError
+from agentpool.preferences import PREFERENCES_PATH, ensure_preferences_file
 from agentpool.runtimes.tmux import TmuxRuntime
 from agentpool.session_manager import SessionManager
 from agentpool.store import Store
@@ -22,14 +23,17 @@ from agentpool.usage.probes import detect_ccusage, detect_codexbar
 
 def init_config(path: Path, force: bool = False) -> dict[str, Any]:
     path = path.expanduser()
+    preferences_path = path.parent / PREFERENCES_PATH.name
     existed = path.exists()
     backup_path: Path | None = None
     if existed and not force:
         config = load_config(path)
+        preferences = ensure_preferences_file(preferences_path, force=False)
         return {
             "changed": False,
             "config_path": str(path),
             "reason": "config already exists",
+            "preferences": preferences,
             "providers": sorted(config.providers),
             "next_commands": default_onboarding_nudges(),
         }
@@ -39,10 +43,12 @@ def init_config(path: Path, force: bool = False) -> dict[str, Any]:
     config = load_config(Path("__missing_agentpool_config__.yaml"))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(config.model_dump(mode="json"), sort_keys=False), encoding="utf-8")
+    preferences = ensure_preferences_file(preferences_path, force=force)
     return {
         "changed": True,
         "config_path": str(path),
         "backup_path": str(backup_path) if backup_path else None,
+        "preferences": preferences,
         "providers": sorted(config.providers),
         "next_commands": default_onboarding_nudges(),
     }

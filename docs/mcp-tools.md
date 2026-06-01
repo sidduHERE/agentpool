@@ -34,6 +34,7 @@ The default toolset is the smallest worker lifecycle surface:
 - `get_usage_summary`
 - `get_usage_snapshot`
 - `get_provider_models`
+- `get_delegation_preferences`
 - `spawn_worker`
 - `observe_worker`
 - `send_worker_message`
@@ -130,6 +131,7 @@ The default resource set is non-duplicative:
 
 - `agentpool://onboarding`
 - `agentpool://skill.md`
+- `agentpool://preferences.md`
 - `agentpool://sessions/{session_id}/transcript`
 - `agentpool://sessions/{session_id}/events`
 - `agentpool://artifacts/{session_id}`

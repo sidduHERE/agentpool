@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from agentpool.agent_io import compact_artifact_manifest, lockdown_resource, omitted_worker_output, wrap_untrusted
+from agentpool.preferences import read_preferences_text
 from agentpool.session_manager import SessionManager
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -18,6 +19,8 @@ def read_resource(manager: SessionManager, uri: str, lockdown: bool = False) -> 
         return _text_resource("onboarding.md")
     if uri == "agentpool://skill.md":
         return _text_resource("agentpool-skill.md")
+    if uri == "agentpool://preferences.md":
+        return read_preferences_text()
     prefix = "agentpool://sessions/"
     if uri.startswith(prefix):
         tail = uri[len(prefix) :]

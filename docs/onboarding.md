@@ -21,6 +21,7 @@ uv pip install -e ".[dev]"
 
 ```bash
 agentpool init
+agentpool preferences
 agentpool setup cursor
 agentpool config validate
 agentpool doctor --deep --privacy
@@ -147,6 +148,7 @@ resource is missing from their context:
 
 - `agentpool://onboarding`
 - `agentpool://skill.md`
+- `agentpool://preferences.md`
 - `agentpool://sessions/{session_id}/transcript`
 - `agentpool://sessions/{session_id}/events`
 - `agentpool://artifacts/{session_id}`
@@ -157,18 +159,20 @@ the CLI because it keeps transcripts and artifacts on disk until explicitly read
 
 ## Agent Operating Loop
 
-1. Read usage and model state (`agentpool usage-summary --json`, `agentpool models --json`, or the matching MCP tools).
-2. Pick the provider explicitly.
-3. Use `read_only` for exploration and choose `worktree` explicitly only when
+1. Read the user's preferences (`agentpool preferences`, `get_delegation_preferences()`, or `agentpool://preferences.md`).
+2. Read usage and model state (`agentpool usage-summary --json`, `agentpool models --json`, or the matching MCP tools).
+3. Decide whether AgentPool is appropriate, or whether your own native subagent system is better for this task.
+4. Pick the provider explicitly.
+5. Use `read_only` for exploration and choose `worktree` explicitly only when
    AgentPool should create an isolated worktree.
-4. Spawn one narrow worker.
-5. Observe until question, approval, completion, error, or timeout.
-6. Send steering or interrupt deliberately.
-7. Use advisory file leases when multiple workers may touch the same files.
-8. Read bounded transcript pages only when the manifest/summary is not enough.
-9. Use paginated `sessions` / `list_sessions` reads for fleet metadata.
-10. Read the artifact manifest, then collect artifacts.
-11. Terminate sessions when done.
+6. Spawn one narrow worker.
+7. Observe until question, approval, completion, error, or timeout.
+8. Send steering or interrupt deliberately.
+9. Use advisory file leases when multiple workers may touch the same files.
+10. Read bounded transcript pages only when the manifest/summary is not enough.
+11. Use paginated `sessions` / `list_sessions` reads for fleet metadata.
+12. Read the artifact manifest, then collect artifacts.
+13. Terminate sessions when done.
 
 AgentPool never merges, pushes, silently accepts overage, stores provider
 credentials, scrapes browser pages, or ranks providers.

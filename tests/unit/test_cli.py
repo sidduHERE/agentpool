@@ -125,6 +125,22 @@ def test_spawn_accepts_task_stdin(monkeypatch) -> None:
     assert manager.spawn_task == "Inspect via stdin"
 
 
+def test_preferences_command_inits_and_shows_markdown(tmp_path) -> None:
+    path = tmp_path / "preferences.md"
+    runner = CliRunner()
+
+    init = runner.invoke(app, ["preferences", "init", "--path", str(path), "--json"])
+    show = runner.invoke(app, ["preferences", "--path", str(path), "--json"])
+
+    assert init.exit_code == 0
+    assert json.loads(init.output)["changed"] is True
+    assert show.exit_code == 0
+    payload = json.loads(show.output)
+    assert payload["path"] == str(path)
+    assert payload["resource_uri"] == "agentpool://preferences.md"
+    assert "AgentPool Preferences" in payload["text"]
+
+
 def test_send_accepts_stdin(monkeypatch) -> None:
     manager = CliManager()
     monkeypatch.setattr("agentpool.cli.manager", lambda: manager)

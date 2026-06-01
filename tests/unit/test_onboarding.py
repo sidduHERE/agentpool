@@ -164,6 +164,10 @@ def test_init_config_is_idempotent_and_backs_up_on_force(tmp_path: Path) -> None
     assert forced["changed"] is True
     assert forced["backup_path"]
     assert Path(forced["backup_path"]).exists()
+    assert first["preferences"]["changed"] is True
+    assert second["preferences"]["changed"] is False
+    assert Path(first["preferences"]["path"]).name == "preferences.md"
+    assert Path(first["preferences"]["path"]).exists()
     assert "agentpool setup cursor" in first["next_commands"]
 
 

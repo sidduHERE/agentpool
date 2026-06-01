@@ -54,4 +54,5 @@ Use `--isolation worktree` instead of `read_only` for tasks that edit files.
 
 - Full agent guidance: `agentpool://skill.md`
 - Setup and privacy detail: `agentpool://onboarding`
+- User delegation preferences: `agentpool://preferences.md`
 - MCP host config: `agentpool mcp-config --client <host> --absolute-command --install`

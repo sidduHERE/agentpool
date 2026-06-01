@@ -11,6 +11,11 @@ need to delegate coding-agent work.
 ## Rules
 
 - AgentPool is a control plane, not an auto-router.
+- Read the user's AgentPool preferences before deciding whether to delegate:
+  - CLI: `agentpool preferences`
+  - MCP: `get_delegation_preferences()` or `agentpool://preferences.md`
+  - These preferences may tell you to use your own native subagent system
+    instead of AgentPool for some tasks.
 - Choose provider and model explicitly. Never use `provider=auto`.
 - Prefer the CLI when you have shell access; use MCP for MCP-native/no-shell hosts.
 - Run or read usage before delegation:
@@ -38,6 +43,7 @@ need to delegate coding-agent work.
 
 ```bash
 agentpool usage-summary --refresh --json
+agentpool preferences
 agentpool models --provider <provider-id> --json
 agentpool spawn --provider <provider-id> --model <model-id> --repo . --task "<narrow task>" --isolation read_only --json
 agentpool observe <session-id> --wait-for completed,error,question,approval_prompt --timeout 120 --json
@@ -62,15 +68,16 @@ without dumping the whole file into context.
 
 ## Typical MCP Flow
 
-1. `get_usage_summary(provider_id=..., refresh=false)`
-2. `get_provider_models(provider_id=...)`
-3. `spawn_worker(provider_id=..., model=..., repo_path=..., task=..., isolation="read_only")`
-4. `observe_worker(session_id=..., wait_for=["completed","error","question","approval_prompt"], timeout_seconds=120)`
-5. `send_worker_message(...)` or `interrupt_worker(...)`
-6. `get_artifact_manifest(...)`
-7. `read_worker_transcript(...)` for bounded transcript pages, only if needed
-8. `collect_worker_artifacts(...)`
-9. `terminate_worker(...)`
+1. `get_delegation_preferences()`
+2. `get_usage_summary(provider_id=..., refresh=false)`
+3. `get_provider_models(provider_id=...)`
+4. `spawn_worker(provider_id=..., model=..., repo_path=..., task=..., isolation="read_only")`
+5. `observe_worker(session_id=..., wait_for=["completed","error","question","approval_prompt"], timeout_seconds=120)`
+6. `send_worker_message(...)` or `interrupt_worker(...)`
+7. `get_artifact_manifest(...)`
+8. `read_worker_transcript(...)` for bounded transcript pages, only if needed
+9. `collect_worker_artifacts(...)`
+10. `terminate_worker(...)`
 
 Use opt-in MCP toolsets for extra surfaces:
 

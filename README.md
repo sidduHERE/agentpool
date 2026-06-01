@@ -272,11 +272,15 @@ MCP-connected agents should read these once on connect:
 
 - `agentpool://onboarding`
 - `agentpool://skill.md`
+- `agentpool://preferences.md`
 
-Then use tools for live operations. The default MCP toolset is deliberately
-small: inventory, usage snapshot, provider models, spawn, observe, send,
-interrupt, collect, artifact manifest, transcript paging, and terminate. Add
-opt-in toolsets with `agentpool mcp --toolsets default,stats,sessions,leases,worktrees`.
+Then use tools for live operations. The user-owned preferences file also shows
+up through `agentpool preferences` and `get_delegation_preferences()`. It may
+say to use your native subagent system instead of AgentPool for some tasks. The
+default MCP toolset is deliberately small: inventory, usage snapshot, usage
+summary, provider models, preferences, spawn, observe, send, interrupt,
+collect, artifact manifest, transcript paging, and terminate. Add opt-in
+toolsets with `agentpool mcp --toolsets default,stats,sessions,leases,worktrees`.
 
 Coding agents with shell access should prefer the CLI path. It is more
 token-efficient because large worker output stays in artifact files and

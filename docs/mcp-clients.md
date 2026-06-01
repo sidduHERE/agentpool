@@ -257,8 +257,9 @@ Restart Claude Desktop after editing the file.
 Once connected, a good first prompt is:
 
 ```text
-Read agentpool://skill.md. Then call
-get_usage_summary(refresh=false), get_provider_models(), and get_inventory() before
+Read agentpool://skill.md and agentpool://preferences.md. Then call
+get_delegation_preferences(), get_usage_summary(refresh=false),
+get_provider_models(), and get_inventory() before
 spawning any workers. After spawn_worker, use observe_worker for the worker
 control loop; do not poll get_session/list_sessions as a substitute. Use
 read_worker_transcript with offset/limit only when you need bounded transcript

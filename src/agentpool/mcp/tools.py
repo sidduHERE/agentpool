@@ -76,6 +76,10 @@ def get_provider_models(manager: SessionManager, provider_id: str | None = None)
     return manager.provider_models(provider_id)
 
 
+def get_delegation_preferences(manager: SessionManager) -> dict[str, Any]:
+    return manager.preferences()
+
+
 def validate_model_catalog(manager: SessionManager, path: str | None = None) -> dict[str, Any]:
     return validate_model_catalog_path(
         Path(path).expanduser() if path else DEFAULT_MODEL_CATALOG_PATH,
