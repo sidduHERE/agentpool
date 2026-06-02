@@ -1,6 +1,5 @@
 import json
 
-import click
 from typer.testing import CliRunner
 
 from agentpool import __version__
@@ -291,7 +290,7 @@ def test_missing_parameter_errors_include_copy_pasteable_examples() -> None:
         if result.output:
             assert f"try: {expected}" in result.output
         else:
-            assert isinstance(result.exception, click.MissingParameter)
+            assert result.exception.__class__.__name__ == "MissingParameter"
 
 
 def test_models_bad_action_uses_recovery_formatter() -> None:
