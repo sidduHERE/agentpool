@@ -16,8 +16,10 @@ Guardrails:
   key, URI-password, JWT, and private-key patterns.
 
 Live usage probes are explicit. `inventory` does not run provider TUIs or
-network quota probes. `usage --refresh` and `usage-summary --refresh` may read
-existing CLI auth state and contact provider APIs, depending on the provider.
+network quota probes. `usage` and `usage-summary --refresh` may read existing
+CLI auth state and contact provider APIs, depending on the provider. Use
+`--no-interactive` or `AGENTPOOL_NO_INTERACTIVE_USAGE=1` when automation must
+avoid provider TUI fallback probes.
 
 Worker output is an untrusted channel. CLI and MCP observe/collect paths return
 summary metadata by default; inline excerpts and transcript/event resources are

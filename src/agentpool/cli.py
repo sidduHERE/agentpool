@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, Callable
 
+import click
 import typer
 import yaml
 from rich.console import Console
@@ -29,7 +31,6 @@ from agentpool.onboarding import (
     format_mcp_install,
     init_config,
     mcp_client_config,
-    mcp_host_config,
     privacy_doctor,
     run_fake_smoke,
     run_real_read_only_smoke,
@@ -44,16 +45,206 @@ from agentpool.stats.render import render_stats_panel, render_stats_plain
 from agentpool.usage.probes import detect_codexbar
 
 
-app = typer.Typer(
-    help="Use every coding-agent subscription you pay for: see live usage limits and offload work to providers with headroom.",
+class AgentPoolCommand(typer.core.TyperCommand):
+    def main(
+        self,
+        args: list[str] | None = None,
+        prog_name: str | None = None,
+        complete_var: str | None = None,
+        standalone_mode: bool = True,
+        windows_expand_args: bool = True,
+        **extra: Any,
+    ) -> Any:
+        return _main_with_recovery(
+            lambda **kwargs: super(AgentPoolCommand, self).main(**kwargs),
+            self,
+            args=args,
+            prog_name=prog_name,
+            complete_var=complete_var,
+            standalone_mode=standalone_mode,
+            windows_expand_args=windows_expand_args,
+            **extra,
+        )
+
+
+class AgentPoolGroup(typer.core.TyperGroup):
+    def main(
+        self,
+        args: list[str] | None = None,
+        prog_name: str | None = None,
+        complete_var: str | None = None,
+        standalone_mode: bool = True,
+        windows_expand_args: bool = True,
+        **extra: Any,
+    ) -> Any:
+        return _main_with_recovery(
+            lambda **kwargs: super(AgentPoolGroup, self).main(**kwargs),
+            self,
+            args=args,
+            prog_name=prog_name,
+            complete_var=complete_var,
+            standalone_mode=standalone_mode,
+            windows_expand_args=windows_expand_args,
+            **extra,
+        )
+
+
+class AgentPoolTyper(typer.Typer):
+    def command(self, *args: Any, cls: type[typer.core.TyperCommand] | None = None, **kwargs: Any) -> Any:
+        return super().command(*args, cls=cls or AgentPoolCommand, **kwargs)
+
+
+def _main_with_recovery(
+    call_main: Callable[..., Any],
+    command: click.Command,
+    *,
+    args: list[str] | None,
+    prog_name: str | None,
+    complete_var: str | None,
+    standalone_mode: bool,
+    windows_expand_args: bool,
+    **extra: Any,
+) -> Any:
+    try:
+        result = call_main(
+            args=args,
+            prog_name=prog_name,
+            complete_var=complete_var,
+            standalone_mode=False,
+            windows_expand_args=windows_expand_args,
+            **extra,
+        )
+        if standalone_mode:
+            sys.exit(result if isinstance(result, int) else 0)
+        return result
+    except click.ClickException as exc:
+        if not standalone_mode:
+            raise
+        _format_click_error(exc, getattr(command, "rich_markup_mode", None))
+        example = _missing_parameter_example(exc)
+        if example:
+            click.echo(f"try: {example}", err=True)
+        sys.exit(exc.exit_code)
+
+
+def _format_click_error(exc: click.ClickException, rich_markup_mode: str | None) -> None:
+    if typer.core.HAS_RICH and rich_markup_mode is not None:
+        from typer import rich_utils
+
+        rich_utils.rich_format_error(exc)
+    else:
+        exc.show()
+
+
+def _missing_parameter_example(exc: click.ClickException) -> str | None:
+    if not isinstance(exc, click.MissingParameter) or exc.ctx is None:
+        return None
+    command_path = _normalize_command_path(tuple((exc.ctx.command_path or "").split()))
+    param = exc.param
+    param_name = param.name if param is not None else ""
+    option_names = set(getattr(param, "opts", []) or [])
+    examples: dict[tuple[tuple[str, ...], str], str] = {
+        (("spawn",), "provider"): "cat task.md | agentpool spawn --provider <provider-id> --repo . --task-stdin",
+        (("setup",), "target"): "agentpool setup codex",
+        (("observe",), "session_id"): "agentpool observe <session-id> --detail excerpt --json",
+        (("send",), "session_id"): 'agentpool send <session-id> "Continue."',
+        (("keys",), "session_id"): "agentpool keys <session-id> Enter --json",
+        (("interrupt",), "session_id"): "agentpool interrupt <session-id> --json",
+        (("attach",), "session_id"): "agentpool attach <session-id>",
+        (("collect",), "session_id"): "agentpool collect <session-id> --json",
+        (("artifacts",), "session_id"): "agentpool artifacts <session-id> --json",
+        (("transcript",), "session_id"): "agentpool transcript <session-id> --tail-lines 80",
+        (("terminate",), "session_id"): "agentpool terminate <session-id> --dry-run --json",
+        (("session", "show"), "session_id"): "agentpool session show <session-id> --json",
+        (("leases", "acquire"), "session_id"): "agentpool leases acquire --session-id <session-id> --file <path> --json",
+        (("leases", "acquire"), "file_path"): "agentpool leases acquire --session-id <session-id> --file <path> --json",
+        (("worktrees", "cleanup"), "session_id"): "agentpool worktrees cleanup --session-id <session-id> --dry-run --json",
+    }
+    if "--provider" in option_names:
+        return examples.get((command_path, "provider"))
+    if "--session-id" in option_names:
+        return examples.get((command_path, "session_id"))
+    if "--file" in option_names:
+        return examples.get((command_path, "file_path"))
+    return examples.get((command_path, param_name))
+
+
+def _normalize_command_path(tokens: tuple[str, ...]) -> tuple[str, ...]:
+    known = {
+        "artifacts",
+        "attach",
+        "collect",
+        "interrupt",
+        "keys",
+        "leases",
+        "observe",
+        "send",
+        "session",
+        "setup",
+        "spawn",
+        "terminate",
+        "transcript",
+        "worktrees",
+    }
+    for index, token in enumerate(tokens):
+        if token in known:
+            return tokens[index:]
+    return tokens[1:]
+
+
+app = AgentPoolTyper(
+    cls=AgentPoolGroup,
+    help=(
+        "Use every coding-agent subscription you pay for: see live usage limits and offload work to providers with headroom.\n\n"
+        "Examples:\n"
+        "  agentpool inventory --json\n"
+        "  cat task.md | agentpool spawn --provider codex-cli --repo . --task-stdin\n"
+        "  agentpool observe <session-id> --detail excerpt --json\n\n"
+        "More examples live in docs/examples.md. Lifecycle commands stay flat (`spawn`, `observe`, `terminate`); "
+        "resource commands are grouped (`session show`, `leases *`, `worktrees *`)."
+    ),
     invoke_without_command=True,
     no_args_is_help=True,
 )
-config_app = typer.Typer(help="Inspect AgentPool config.")
-leases_app = typer.Typer(help="Manage advisory file leases.")
-worktrees_app = typer.Typer(help="Inspect and clean AgentPool-created worktrees.")
+config_app = AgentPoolTyper(
+    cls=AgentPoolGroup,
+    help=(
+        "Inspect AgentPool config.\n\n"
+        "Examples:\n"
+        "  agentpool config path --json\n"
+        "  agentpool config validate --json"
+    ),
+)
+leases_app = AgentPoolTyper(
+    cls=AgentPoolGroup,
+    help=(
+        "Manage advisory file leases.\n\n"
+        "Examples:\n"
+        "  agentpool leases list --json\n"
+        "  agentpool leases release --session-id <session-id> --dry-run --json"
+    ),
+)
+session_app = AgentPoolTyper(
+    cls=AgentPoolGroup,
+    help=(
+        "Inspect individual sessions.\n\n"
+        "Examples:\n"
+        "  agentpool session show <session-id> --json\n"
+        "  agentpool session show <session-id> --plain"
+    ),
+)
+worktrees_app = AgentPoolTyper(
+    cls=AgentPoolGroup,
+    help=(
+        "Inspect and clean AgentPool-created worktrees.\n\n"
+        "Examples:\n"
+        "  agentpool worktrees list --repo . --json\n"
+        "  agentpool worktrees cleanup --session-id <session-id> --dry-run --json"
+    ),
+)
 app.add_typer(config_app, name="config")
 app.add_typer(leases_app, name="leases")
+app.add_typer(session_app, name="session")
 app.add_typer(worktrees_app, name="worktrees")
 console = Console()
 
@@ -72,6 +263,53 @@ def print_data(data: object, json_output: bool) -> None:
         console.print_json(json.dumps(data, default=str))
     else:
         console.print(data)
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _usage_allow_interactive(no_interactive: bool) -> bool:
+    return not (no_interactive or _env_flag("AGENTPOOL_NO_INTERACTIVE_USAGE"))
+
+
+def _init_plan(path: Path, *, force: bool = False) -> dict[str, Any]:
+    expanded = path.expanduser()
+    preferences_path = expanded.parent / PREFERENCES_PATH.name
+    config_exists = expanded.exists()
+    would_write_config = force or not config_exists
+    backup_path = expanded.with_suffix(expanded.suffix + ".bak") if config_exists and force else None
+    would_write_preferences = force or not preferences_path.exists()
+    return {
+        "dry_run": True,
+        "changed": would_write_config,
+        "config_path": str(expanded),
+        "would_write_config": would_write_config,
+        "would_backup_config": backup_path is not None,
+        "backup_path": str(backup_path) if backup_path else None,
+        "preferences": {
+            "path": str(preferences_path),
+            "would_write": would_write_preferences,
+            "exists": preferences_path.exists(),
+        },
+        "next_commands": default_onboarding_nudges(),
+    }
+
+
+def _preferences_init_plan(path: Path, *, force: bool = False) -> dict[str, Any]:
+    expanded = path.expanduser()
+    existed = expanded.exists()
+    backup_path = expanded.with_suffix(expanded.suffix + ".bak") if existed and force else None
+    return {
+        "dry_run": True,
+        "changed": force or not existed,
+        "path": str(expanded),
+        "exists": existed,
+        "would_write": force or not existed,
+        "would_backup": backup_path is not None,
+        "backup_path": str(backup_path) if backup_path else None,
+        "resource_uri": "agentpool://preferences.md",
+    }
 
 
 def manager() -> SessionManager:
@@ -108,19 +346,50 @@ def _next_command_for_error(exc: ToolError) -> str | None:
         return "agentpool inventory --json"
     if code == "POLICY_BLOCKED" and "max_parallel_sessions" in details:
         return "agentpool sessions --json"
+    if code == "POLICY_BLOCKED" and details.get("policy") == "require_worktree_for_edits":
+        return "cat task.md | agentpool spawn --provider <provider-id> --repo . --task-stdin --role implementer --isolation worktree"
+    if code == "POLICY_BLOCKED" and details.get("policy") == "allow_shared_repo_edits":
+        return "agentpool spawn --provider <provider-id> --repo . --task-stdin --role implementer --isolation worktree"
+    if code == "POLICY_BLOCKED" and details.get("policy") == "allow_raw_keys":
+        return "agentpool interrupt <session-id> --json"
+    if code == "POLICY_BLOCKED" and details.get("provider_id"):
+        return "agentpool inventory --json"
     if code == "USAGE_POLICY_BLOCKED":
         provider_id = details.get("provider_id") or "<provider-id>"
         return f"agentpool usage-summary --provider {provider_id} --refresh --json"
+    if code == "INVALID_OUTPUT":
+        return "agentpool stats --since 7d --json"
     if code in {"INVALID_REQUEST", "INVALID_STDIN"}:
-        return str(details.get("example") or "agentpool spawn --provider <provider-id> --repo . --task \"Inspect this repo.\"")
+        return str(details.get("example") or "cat task.md | agentpool spawn --provider <provider-id> --repo . --task-stdin")
     if code == "INVALID_DETAIL":
         return "agentpool observe <session-id> --detail excerpt"
     if code == "INVALID_SESSION_PAGE":
         return "agentpool sessions --limit 50 --offset 0 --json"
+    if code == "TMUX_SESSION_NOT_FOUND":
+        return "agentpool sessions --state running,ready,awaiting_user_input,awaiting_approval --json"
+    if code == "WORKTREE_ACTIVE":
+        session_id = details.get("session_id") or "<session-id>"
+        return f"agentpool terminate {session_id} --json"
+    if code == "WORKTREE_DIRTY":
+        return "git -C <worktree-path> status --short"
+    if code == "WORKTREE_FAILED":
+        return "git status --short"
+    if code == "GIT_NOT_REPO":
+        return "agentpool spawn --provider <provider-id> --repo <git-repo-path> --task-stdin --isolation read_only"
+    if code == "TMUX_NOT_FOUND":
+        return "brew install tmux"
+    if code == "INVALID_WINDOW":
+        return "agentpool stats --since 7d --json"
+    if code == "INVALID_TRANSCRIPT_RANGE":
+        return "agentpool transcript <session-id> --offset 0 --limit 4000 --json"
+    if code == "INVALID_LEASE_RELEASE":
+        return str(details.get("example") or "agentpool leases list --json")
+    if code in {"INVALID_LEASE_MODE", "LEASE_CONFLICT"}:
+        return "agentpool leases list --json"
     return None
 
 
-@app.command(help="Check environment, runtime, and provider health.")
+@app.command()
 def doctor(
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
     deep: Annotated[bool, typer.Option("--deep", help="Run tmux/sqlite/artifact/cache checks.")] = False,
@@ -129,6 +398,12 @@ def doctor(
         typer.Option("--privacy", help="Show local storage and usage-probe privacy posture."),
     ] = False,
 ) -> None:
+    """Check environment, runtime, and provider health.
+
+    Examples:
+      agentpool doctor
+      agentpool doctor --deep --privacy --json
+    """
     mgr = manager()
     tmux_path = shutil.which("tmux")
     inventory = mgr.inventory(include_usage=True)
@@ -180,15 +455,35 @@ def doctor(
         console.print(f"  {command}")
 
 
-@app.command("init", help="Initialize AgentPool config and local state.")
+@app.command("init")
 def init_command(
     path: Annotated[Path, typer.Option("--path", help="Config path to initialize.")] = DEFAULT_CONFIG_PATH,
-    force: Annotated[bool, typer.Option("--force", help="Back up and overwrite existing config.")] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "--yes", help="Back up and overwrite existing config."),
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview planned writes without changing files.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
-    data = init_config(path, force=force)
+    """Initialize AgentPool config and local state.
+
+    Examples:
+      agentpool init
+      agentpool init --path ~/.agentpool/config.yaml --dry-run --json
+      agentpool init --force --json
+    """
+    data = _init_plan(path, force=force) if dry_run else init_config(path, force=force)
     if json_output:
         console.print_json(json.dumps(data, default=str))
+        return
+    if dry_run:
+        console.print(f"dry run: config {'would write' if data['would_write_config'] else 'unchanged'}: {data['config_path']}")
+        if data.get("backup_path"):
+            console.print(f"backup would be written: {data['backup_path']}")
+        console.print(
+            f"preferences {'would write' if data['preferences']['would_write'] else 'unchanged'}: "
+            f"{data['preferences']['path']}"
+        )
         return
     status = "wrote" if data["changed"] else "exists"
     console.print(f"config {status}: {data['config_path']}")
@@ -253,8 +548,14 @@ def mcp_config(
         console.print_json(json.dumps(data["config"]))
 
 
-@app.command(help="List providers with install, auth, model, and usage state.")
+@app.command()
 def inventory(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
+    """List providers with install, auth, model, and usage state.
+
+    Examples:
+      agentpool inventory
+      agentpool inventory --json
+    """
     data = manager().inventory(include_usage=True)
     if json_output:
         console.print_json(json.dumps(data, default=str))
@@ -272,7 +573,7 @@ def inventory(json_output: Annotated[bool, typer.Option("--json", help="Emit JSO
         console.print(f"preferences: {data['preferences']['path']}")
 
 
-@app.command(help="Show a provider usage snapshot (cached or freshly probed).")
+@app.command()
 def usage(
     provider: Annotated[str | None, typer.Option("--provider", help="Provider id.")] = None,
     backend: Annotated[
@@ -280,10 +581,34 @@ def usage(
         typer.Option("--backend", help="Usage backend: native, codexbar, ccusage, or combined."),
     ] = "combined",
     cached: Annotated[bool, typer.Option("--cached", help="Read latest persisted snapshot without probing.")] = False,
+    no_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--no-interactive",
+            "--no-interactive-usage",
+            help="Disable provider TUI fallback probes for this command.",
+        ),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """Show a provider usage snapshot.
+
+    Examples:
+      agentpool usage --provider codex-cli --json
+      AGENTPOOL_NO_INTERACTIVE_USAGE=1 agentpool usage --provider claude-code --json
+      agentpool usage --provider cursor-cli --backend codexbar --json
+      agentpool usage --cached --json
+    """
     try:
-        data = manager().cached_usage_snapshot(provider) if cached else manager().usage_snapshot(provider, backend=backend)
+        data = (
+            manager().cached_usage_snapshot(provider)
+            if cached
+            else manager().usage_snapshot(
+                provider,
+                backend=backend,
+                allow_interactive=_usage_allow_interactive(no_interactive),
+            )
+        )
         print_data(data, json_output)
     except ToolError as exc:
         handle_tool_error(exc, json_output)
@@ -297,6 +622,14 @@ def usage_summary(
         str,
         typer.Option("--backend", help="Live usage backend: native, codexbar, ccusage, or combined."),
     ] = "combined",
+    no_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--no-interactive",
+            "--no-interactive-usage",
+            help="Disable provider TUI fallback probes during refresh.",
+        ),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
     """Summarize provider usage.
@@ -304,10 +637,16 @@ def usage_summary(
     Examples:
       agentpool usage-summary --json
       agentpool usage-summary --provider codex-cli --refresh --json
+      agentpool usage-summary --provider claude-code --refresh --no-interactive --json
       agentpool usage-summary --backend codexbar --json
     """
     try:
-        data = manager().usage_summary(provider_id=provider, refresh=refresh, backend=backend)
+        data = manager().usage_summary(
+            provider_id=provider,
+            refresh=refresh,
+            backend=backend,
+            allow_interactive=_usage_allow_interactive(no_interactive),
+        )
         if json_output:
             console.print_json(json.dumps(data, default=str))
             return
@@ -327,7 +666,7 @@ def usage_summary(
         handle_tool_error(exc, json_output)
 
 
-@app.command("capacity-summary", help="Alias of usage-summary (human convenience).")
+@app.command("capacity-summary")
 def capacity_summary(
     provider: Annotated[str | None, typer.Option("--provider", help="Provider id.")] = None,
     refresh: Annotated[bool, typer.Option("--refresh", help="Run live probes before summarizing.")] = False,
@@ -335,12 +674,32 @@ def capacity_summary(
         str,
         typer.Option("--backend", help="Live usage backend: native, codexbar, ccusage, or combined."),
     ] = "combined",
+    no_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--no-interactive",
+            "--no-interactive-usage",
+            help="Disable provider TUI fallback probes during refresh.",
+        ),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
-    usage_summary(provider=provider, refresh=refresh, backend=backend, json_output=json_output)
+    """Human convenience alias for usage-summary.
+
+    Examples:
+      agentpool capacity-summary --json
+      agentpool capacity-summary --refresh --no-interactive --json
+    """
+    usage_summary(
+        provider=provider,
+        refresh=refresh,
+        backend=backend,
+        no_interactive=no_interactive,
+        json_output=json_output,
+    )
 
 
-@app.command("setup", help="Wire AgentPool into an MCP host or provider and report next steps.")
+@app.command("setup")
 def setup_command(
     target: Annotated[
         str,
@@ -354,18 +713,35 @@ def setup_command(
         bool,
         typer.Option("--skip-usage", help="Do not run live usage probes during setup."),
     ] = False,
+    no_interactive_usage: Annotated[
+        bool,
+        typer.Option(
+            "--no-interactive-usage",
+            "--no-interactive",
+            help="Disable provider TUI fallback probes during setup usage checks.",
+        ),
+    ] = False,
     relative_command: Annotated[
         bool,
         typer.Option("--relative-command", help="Use 'agentpool' instead of an absolute path in MCP config."),
     ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """Wire AgentPool into an MCP host or provider and report next steps.
+
+    Examples:
+      agentpool setup codex
+      agentpool setup cursor --json
+      agentpool setup claude-code --no-interactive-usage --json
+      agentpool setup all --skip-usage
+    """
     if target.strip().lower() == "all":
         data = setup_all_providers(
             manager(),
             backend=backend,
             run_usage=not skip_usage,
             absolute_command=not relative_command,
+            allow_interactive=_usage_allow_interactive(no_interactive_usage),
         )
         if json_output:
             console.print_json(json.dumps(data, default=str))
@@ -397,6 +773,7 @@ def setup_command(
         backend=backend,
         run_usage=not skip_usage,
         absolute_command=not relative_command,
+        allow_interactive=_usage_allow_interactive(no_interactive_usage),
     )
     if json_output:
         console.print_json(json.dumps(data, default=str))
@@ -441,8 +818,14 @@ def setup_command(
         raise typer.Exit(1)
 
 
-@app.command(help="Print onboarding paths, first commands, and MCP host config.")
+@app.command()
 def onboard(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
+    """Print onboarding paths, first commands, and MCP host config.
+
+    Examples:
+      agentpool onboard
+      agentpool onboard --json
+    """
     mgr = manager()
     data = {
         "config_path": str(DEFAULT_CONFIG_PATH),
@@ -502,7 +885,7 @@ def onboard(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.
     console.print_json(json.dumps(data["mcp_host_config"]))
 
 
-@app.command("preferences", help="Show or initialize the user-owned AgentPool preferences file.")
+@app.command("preferences")
 def preferences_command(
     action: Annotated[
         str,
@@ -512,7 +895,11 @@ def preferences_command(
         Path,
         typer.Option("--path", help="Preferences path. Defaults to ~/.agentpool/preferences.md."),
     ] = PREFERENCES_PATH,
-    force: Annotated[bool, typer.Option("--force", help="Back up and overwrite during init.")] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "--yes", help="Back up and overwrite during init."),
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview preferences init without writing files.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
     """Show or create the Markdown preferences agents should read before delegation.
@@ -520,10 +907,21 @@ def preferences_command(
     Examples:
       agentpool preferences
       agentpool preferences init
+      agentpool preferences init --dry-run --json
       agentpool preferences --json
       agentpool preferences path
     """
     action = action.strip().lower()
+    if dry_run and action != "init":
+        handle_tool_error(
+            ToolError(
+                "INVALID_REQUEST",
+                "--dry-run is only supported for preferences init.",
+                {"example": "agentpool preferences init --dry-run --json"},
+            ),
+            json_output,
+        )
+        return
     if action == "path":
         data = {"path": str(path.expanduser()), "resource_uri": "agentpool://preferences.md"}
         if json_output:
@@ -532,7 +930,7 @@ def preferences_command(
             console.print(data["path"])
         return
     if action == "init":
-        data = ensure_preferences_file(path, force=force)
+        data = _preferences_init_plan(path, force=force) if dry_run else ensure_preferences_file(path, force=force)
     elif action == "show":
         data = preferences_payload(path, include_text=True)
     else:
@@ -549,6 +947,11 @@ def preferences_command(
         console.print_json(json.dumps(data, default=str))
         return
     if action == "init":
+        if dry_run:
+            console.print(f"dry run: preferences {'would write' if data['would_write'] else 'unchanged'}: {data['path']}")
+            if data.get("backup_path"):
+                console.print(f"backup would be written: {data['backup_path']}")
+            return
         status = "wrote" if data["changed"] else "exists"
         console.print(f"preferences {status}: {data['path']}")
         if data.get("backup_path"):
@@ -576,6 +979,12 @@ def smoke(
     ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """Run a fake-provider smoke or guarded real-provider smoke.
+
+    Examples:
+      agentpool smoke --provider fake-question --repo . --json
+      agentpool smoke --provider codex-cli --repo . --real-read-only --timeout 60
+    """
     try:
         if provider.startswith("fake-"):
             data = run_fake_smoke(manager(), repo=repo.expanduser().resolve(), provider_id=provider)
@@ -603,8 +1012,14 @@ def smoke(
         handle_tool_error(exc, json_output)
 
 
-@app.command(help="List configured provider ids.")
+@app.command()
 def providers(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
+    """List configured provider ids.
+
+    Examples:
+      agentpool providers
+      agentpool providers --json
+    """
     data = manager().inventory(include_usage=False)
     if json_output:
         console.print_json(
@@ -619,7 +1034,7 @@ def providers(json_output: Annotated[bool, typer.Option("--json", help="Emit JSO
         console.print(f"preferences: {data['preferences']['path']}")
 
 
-@app.command("models", help="List the model catalog, or validate it with 'models validate'.")
+@app.command("models")
 def models_command(
     action: Annotated[
         str | None,
@@ -632,10 +1047,25 @@ def models_command(
     ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
-    mgr = manager()
+    """List the model catalog, or validate it with 'models validate'.
+
+    Examples:
+      agentpool models --json
+      agentpool models --provider codex-cli
+      agentpool models validate --path src/agentpool/provider_model_catalog.json --json
+    """
     if action:
         if action != "validate":
-            raise typer.BadParameter("Only supported models action is 'validate'.")
+            handle_tool_error(
+                ToolError(
+                    "INVALID_REQUEST",
+                    "Only supported models action is 'validate'.",
+                    {"example": "agentpool models validate --json"},
+                ),
+                json_output,
+            )
+            return
+        mgr = manager()
         data = validate_model_catalog_path(
             path or DEFAULT_MODEL_CATALOG_PATH,
             known_provider_ids=set(mgr.config.providers),
@@ -651,6 +1081,7 @@ def models_command(
         if not data["ok"]:
             raise typer.Exit(1)
         return
+    mgr = manager()
     data = mgr.provider_models(provider)
     rows = data["providers"]
     if json_output:
@@ -732,7 +1163,13 @@ def stats(
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
     plain: Annotated[bool, typer.Option("--plain", help="Emit grep-friendly key=value lines.")] = False,
 ) -> None:
-    """Report pool stats for a time window. Defaults to the last 7 days."""
+    """Report pool stats for a time window. Defaults to the last 7 days.
+
+    Examples:
+      agentpool stats
+      agentpool stats --since 30d --plain
+      agentpool stats --from 2026-01-01T00:00:00Z --to 2026-01-08T00:00:00Z --json
+    """
     if json_output and plain:
         handle_tool_error(
             ToolError("INVALID_OUTPUT", "Choose either --json or --plain, not both."),
@@ -790,6 +1227,7 @@ def sessions(
     recent: Annotated[int | None, typer.Option("--recent", help="Return the N most recent sessions.")] = None,
     all_rows: Annotated[bool, typer.Option("--all", help="Return all matching sessions.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+    plain: Annotated[bool, typer.Option("--plain", help="Emit grep-friendly key=value lines.")] = False,
 ) -> None:
     """List sessions with bounded output by default.
 
@@ -798,7 +1236,10 @@ def sessions(
       agentpool sessions --limit 25 --offset 25 --json
       agentpool sessions --state running,awaiting_user_input --json
       agentpool sessions --recent 10 --json
+      agentpool sessions --plain
     """
+    if json_output and plain:
+        handle_tool_error(ToolError("INVALID_OUTPUT", "Choose either --json or --plain, not both."), json_output)
     try:
         if recent is not None and all_rows:
             raise ToolError(
@@ -818,14 +1259,160 @@ def sessions(
     except ToolError as exc:
         handle_tool_error(exc, json_output)
         return
-    print_data(data, json_output)
+    if json_output:
+        print_data(data, json_output)
+        return
+    if plain:
+        console.print(_sessions_plain(data), markup=False)
+        return
+    _print_sessions_table(data)
+
+
+def _print_sessions_table(data: dict[str, Any]) -> None:
+    table = Table("Session", "Provider", "State", "Role", "Created", "Repo")
+    for session in data.get("sessions", []):
+        table.add_row(
+            str(session.get("id") or ""),
+            str(session.get("provider_id") or ""),
+            str(session.get("state") or ""),
+            str(session.get("role") or ""),
+            str(session.get("created_at") or ""),
+            str(session.get("repo_path") or ""),
+        )
+    console.print(table)
+    pagination = data.get("pagination") or {}
+    console.print(
+        f"showing {pagination.get('count', 0)} of {pagination.get('total', 0)}"
+        + (f"; next offset {pagination['next_offset']}" if pagination.get("next_offset") is not None else "")
+    )
+
+
+def _sessions_plain(data: dict[str, Any]) -> str:
+    lines: list[str] = []
+    for index, session in enumerate(data.get("sessions", [])):
+        prefix = f"sessions.{index}"
+        for key in ("id", "provider_id", "state", "role", "repo_path", "created_at"):
+            lines.append(f"{prefix}.{key}={session.get(key) or ''}")
+    pagination = data.get("pagination") or {}
+    for key in ("count", "total", "offset", "limit", "has_more", "next_offset"):
+        lines.append(f"pagination.{key}={pagination.get(key) if pagination.get(key) is not None else ''}")
+    return "\n".join(lines)
+
+
+def _session_plain(data: dict[str, Any]) -> str:
+    session = data.get("session") or {}
+    lines = []
+    for key in ("id", "provider_id", "model", "state", "role", "repo_path", "worktree_path", "created_at", "ended_at"):
+        lines.append(f"session.{key}={session.get(key) or ''}")
+    return "\n".join(lines)
+
+
+def _yes_no(value: Any) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return str(value)
+
+
+def _print_status_payload(data: dict[str, Any]) -> None:
+    preferred = (
+        "session_id",
+        "ok",
+        "state",
+        "current_state",
+        "dry_run",
+        "would_interrupt",
+        "would_terminate_tmux",
+        "already_terminated",
+        "released",
+        "lease_id",
+        "file_path",
+    )
+    labels = {"session_id": "session"}
+    printed = set()
+    for key in preferred:
+        if key in data and data[key] is not None:
+            console.print(f"{labels.get(key, key)}: {_yes_no(data[key])}")
+            printed.add(key)
+    for key, value in data.items():
+        if key in printed or isinstance(value, (dict, list)) or value is None:
+            continue
+        console.print(f"{key}: {_yes_no(value)}")
+
+
+def _print_artifact_manifest(data: dict[str, Any]) -> None:
+    console.print(f"session: {data.get('session_id') or ''}")
+    console.print(f"artifact_dir: {data.get('artifact_dir') or ''}", markup=False, soft_wrap=True)
+    files = data.get("files") or []
+    if not files:
+        console.print("files: none")
+        return
+    table = Table("Kind", "Path", "Bytes")
+    for artifact in files:
+        table.add_row(
+            str(artifact.get("kind") or ""),
+            str(artifact.get("path") or ""),
+            str(artifact.get("bytes") or artifact.get("size_bytes") or ""),
+        )
+    console.print(table)
+
+
+def _print_collect_payload(data: dict[str, Any]) -> None:
+    console.print(f"session: {data.get('session_id') or ''}")
+    console.print(f"state: {data.get('state') or ''}")
+    console.print(f"artifact_dir: {data.get('artifact_dir') or ''}", markup=False, soft_wrap=True)
+    artifacts = data.get("artifacts") or []
+    console.print(f"artifacts: {len(artifacts)}")
+    worker_output = data.get("worker_output") or {}
+    if worker_output.get("included"):
+        console.print(f"worker_output: included ({worker_output.get('chars', 0)} chars)")
+    else:
+        console.print(f"worker_output: omitted ({worker_output.get('reason') or worker_output.get('detail') or 'summary'})")
+    git = data.get("git") or {}
+    if "dirty" in git:
+        console.print(f"git_dirty: {_yes_no(git['dirty'])}")
+
+
+@session_app.command("show")
+def session_show(
+    session_id: str,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+    plain: Annotated[bool, typer.Option("--plain", help="Emit grep-friendly key=value lines.")] = False,
+) -> None:
+    """Show one session by id.
+
+    Examples:
+      agentpool session show <session-id>
+      agentpool session show <session-id> --json
+      agentpool session show <session-id> --plain
+    """
+    if json_output and plain:
+        handle_tool_error(ToolError("INVALID_OUTPUT", "Choose either --json or --plain, not both."), json_output)
+    try:
+        data = manager().get_session(session_id)
+    except ToolError as exc:
+        handle_tool_error(exc, json_output)
+        return
+    if json_output:
+        print_data(data, json_output)
+        return
+    if plain:
+        console.print(_session_plain(data), markup=False)
+        return
+    session = data["session"]
+    table = Table("Field", "Value")
+    for key in ("id", "provider_id", "model", "state", "role", "repo_path", "worktree_path", "created_at", "ended_at"):
+        table.add_row(key, str(session.get(key) or ""))
+    console.print(table)
 
 
 @app.command()
 def spawn(
     provider: Annotated[str, typer.Option("--provider", help="Explicit provider id.")],
     task: Annotated[str | None, typer.Option("--task", help="Worker task.")] = None,
-    task_stdin: Annotated[bool, typer.Option("--task-stdin", help="Read worker task from stdin.")] = False,
+    task_stdin: Annotated[
+        bool,
+        typer.Option("--task-stdin", "--stdin", help="Read worker task from stdin."),
+    ] = False,
     repo: Annotated[Path, typer.Option("--repo", help="Repository path.")] = Path("."),
     role: Annotated[
         str,
@@ -883,6 +1470,9 @@ def spawn(
       agentpool spawn --provider codex-cli --repo . --task "Review the auth module read-only." --isolation read_only
       cat task.md | agentpool spawn --provider fake-question --repo . --task-stdin --json
       agentpool spawn --provider codex-cli --repo . --task "Make the narrow patch." --isolation worktree
+
+    Notes:
+      Each invocation creates a new session. Use your own idempotency key outside AgentPool if you need dedupe.
     """
     try:
         if task_stdin and task:
@@ -925,11 +1515,32 @@ def spawn(
         if json_output:
             console.print_json(json.dumps(data, default=str))
         else:
-            console.print(data["session"]["id"])
-            console.print(data["attach_command"])
-            console.print(f"preferences: {data['preferences']['path']}")
+            _print_spawn_success(data)
     except ToolError as exc:
         handle_tool_error(exc, json_output)
+
+
+def _print_spawn_success(data: dict[str, Any]) -> None:
+    session = data.get("session") or {}
+    console.print(f"session: {session.get('id')}")
+    console.print(f"provider: {session.get('provider_id')}")
+    if session.get("model"):
+        console.print(f"model: {session.get('model')}")
+    console.print(f"state: {session.get('state')}")
+    console.print(f"attach: {data.get('attach_command')}")
+    if data.get("artifact_dir") or session.get("artifact_dir"):
+        console.print(f"artifacts: {data.get('artifact_dir') or session.get('artifact_dir')}")
+    if data.get("worktree_path") or session.get("worktree_path"):
+        console.print(f"worktree: {data.get('worktree_path') or session.get('worktree_path')}")
+    live_control = data.get("live_control") or {}
+    if live_control:
+        console.print(
+            "control: "
+            + ", ".join(f"{key}={value}" for key, value in live_control.items() if value is not None)
+        )
+    preferences = data.get("preferences") or {}
+    if preferences.get("path"):
+        console.print(f"preferences: {preferences['path']}")
 
 
 @app.command()
@@ -939,7 +1550,10 @@ def observe(
     timeout: Annotated[int, typer.Option("--timeout")] = 0,
     detail: Annotated[str, typer.Option("--detail", help="Output detail: summary, excerpt, or full.")] = "summary",
     max_lines: Annotated[int | None, typer.Option("--max-lines", help="tmux capture line limit.")] = None,
-    output: Annotated[Path | None, typer.Option("--output", help="Write JSON observe payload to this path.")] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "--output-file", help="Write JSON observe payload to this file path."),
+    ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
     """Observe worker state without dumping large transcripts by default.
@@ -1033,15 +1647,21 @@ def keys(
 @app.command()
 def interrupt(
     session_id: str,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview interrupt without sending Ctrl-C.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
     """Interrupt a worker.
 
     Examples:
+      agentpool interrupt <session-id> --dry-run --json
       agentpool interrupt <session-id> --json
     """
     try:
-        print_data(manager().interrupt_worker(session_id), json_output)
+        data = {"ok": True, "session_id": session_id, "dry_run": True, "would_interrupt": True} if dry_run else manager().interrupt_worker(session_id)
+        if json_output:
+            console.print_json(json.dumps(data, default=str))
+            return
+        _print_status_payload(data)
     except ToolError as exc:
         handle_tool_error(exc, json_output)
 
@@ -1082,7 +1702,11 @@ def collect(
     """
     try:
         parsed_detail = parse_detail(detail)
-        print_data(collect_payload(manager().collect_worker_artifacts(session_id), parsed_detail), json_output)
+        data = collect_payload(manager().collect_worker_artifacts(session_id), parsed_detail)
+        if json_output:
+            console.print_json(json.dumps(data, default=str))
+            return
+        _print_collect_payload(data)
     except ToolError as exc:
         handle_tool_error(exc, json_output)
 
@@ -1100,7 +1724,10 @@ def artifacts_command(
     """
     try:
         data = manager().artifact_manifest(session_id)
-        print_data(data, json_output)
+        if json_output:
+            console.print_json(json.dumps(data, default=str))
+            return
+        _print_artifact_manifest(data)
     except ToolError as exc:
         handle_tool_error(exc, json_output)
 
@@ -1133,15 +1760,21 @@ def transcript(
 @app.command()
 def terminate(
     session_id: str,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview termination without killing tmux or updating state.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
     """Terminate a worker.
 
     Examples:
+      agentpool terminate <session-id> --dry-run --json
       agentpool terminate <session-id> --json
     """
     try:
-        print_data(manager().terminate_worker(session_id), json_output)
+        data = manager().terminate_worker(session_id, dry_run=dry_run)
+        if json_output:
+            console.print_json(json.dumps(data, default=str))
+            return
+        _print_status_payload(data)
     except ToolError as exc:
         handle_tool_error(exc, json_output)
 
@@ -1169,13 +1802,33 @@ def mcp(
 
 
 @config_app.command("path")
-def config_path() -> None:
-    console.print(str(DEFAULT_CONFIG_PATH))
+def config_path(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
+    """Print the resolved config path.
+
+    Examples:
+      agentpool config path
+      agentpool config path --json
+    """
+    data = {"path": str(DEFAULT_CONFIG_PATH)}
+    if json_output:
+        console.print_json(json.dumps(data, default=str))
+    else:
+        console.print(data["path"])
 
 
 @config_app.command("print")
-def config_print() -> None:
-    console.print(yaml.safe_dump(load_config().model_dump(mode="json"), sort_keys=False))
+def config_print(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
+    """Print the merged config.
+
+    Examples:
+      agentpool config print
+      agentpool config print --json
+    """
+    data = load_config().model_dump(mode="json")
+    if json_output:
+        console.print_json(json.dumps(data, default=str))
+    else:
+        console.print(yaml.safe_dump(data, sort_keys=False))
 
 
 @config_app.command("validate")
@@ -1183,6 +1836,12 @@ def config_validate(
     path: Annotated[Path | None, typer.Option("--path", help="Config path. Defaults to ~/.agentpool/config.yaml.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """Validate AgentPool config.
+
+    Examples:
+      agentpool config validate
+      agentpool config validate --path ~/.agentpool/config.yaml --json
+    """
     try:
         config = load_config(path)
         data = validate_config(config)
@@ -1211,6 +1870,13 @@ def leases_list(
     all_leases: Annotated[bool, typer.Option("--all", help="Include released and expired leases.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """List advisory file leases.
+
+    Examples:
+      agentpool leases list --json
+      agentpool leases list --session-id <session-id>
+      agentpool leases list --repo .
+    """
     try:
         data = manager().list_file_leases(
             session_id=session_id,
@@ -1230,6 +1896,12 @@ def leases_acquire(
     ttl_seconds: Annotated[int | None, typer.Option("--ttl-seconds", help="Optional lease TTL.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """Acquire an advisory file lease.
+
+    Examples:
+      agentpool leases acquire --session-id <session-id> --file src/app.py --json
+      agentpool leases acquire --session-id <session-id> --file src/app.py --mode read --ttl-seconds 600
+    """
     try:
         print_data(manager().acquire_file_lease(session_id, file_path, mode=mode, ttl_seconds=ttl_seconds), json_output)
     except ToolError as exc:
@@ -1241,10 +1913,38 @@ def leases_release(
     lease_id: Annotated[int | None, typer.Option("--lease-id", help="Lease id to release.")] = None,
     session_id: Annotated[str | None, typer.Option("--session-id", help="Release leases for this session.")] = None,
     file_path: Annotated[str | None, typer.Option("--file", help="Optional file path filter with --session-id.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview release without updating lease state.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """Release advisory file leases.
+
+    Examples:
+      agentpool leases release --lease-id 1 --dry-run --json
+      agentpool leases release --lease-id 1 --json
+      agentpool leases release --session-id <session-id> --file src/app.py
+    """
     try:
-        print_data(manager().release_file_lease(lease_id=lease_id, session_id=session_id, file_path=file_path), json_output)
+        if dry_run:
+            if lease_id is None and not session_id:
+                raise ToolError(
+                    "INVALID_LEASE_RELEASE",
+                    "Provide --lease-id or --session-id.",
+                    {"example": "agentpool leases release --lease-id <lease-id> --dry-run --json"},
+                )
+            data = {
+                "ok": True,
+                "dry_run": True,
+                "would_release": True,
+                "lease_id": lease_id,
+                "session_id": session_id,
+                "file_path": file_path,
+            }
+        else:
+            data = manager().release_file_lease(lease_id=lease_id, session_id=session_id, file_path=file_path)
+        if json_output:
+            console.print_json(json.dumps(data, default=str))
+            return
+        _print_status_payload(data)
     except ToolError as exc:
         handle_tool_error(exc, json_output)
     except ValueError as exc:
@@ -1256,6 +1956,12 @@ def worktrees_list(
     repo: Annotated[Path, typer.Option("--repo", help="Repository path.")] = Path("."),
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """List AgentPool-created worktrees.
+
+    Examples:
+      agentpool worktrees list --repo . --json
+      agentpool worktrees list --repo .
+    """
     try:
         print_data(manager().list_worktrees(str(repo)), json_output)
     except ToolError as exc:
@@ -1265,10 +1971,20 @@ def worktrees_list(
 @worktrees_app.command("cleanup")
 def worktrees_cleanup(
     session_id: Annotated[str, typer.Option("--session-id", help="Session whose AgentPool worktree should be removed.")],
-    force: Annotated[bool, typer.Option("--force", help="Remove even if active or dirty.")] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "--yes", help="Remove even if active or dirty."),
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview cleanup without removing the worktree.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
+    """Clean up one AgentPool-created worktree.
+
+    Examples:
+      agentpool worktrees cleanup --session-id <session-id> --dry-run --json
+      agentpool worktrees cleanup --session-id <session-id> --force --json
+    """
     try:
-        print_data(manager().cleanup_worktree(session_id, force=force), json_output)
+        print_data(manager().cleanup_worktree(session_id, force=force, dry_run=dry_run), json_output)
     except ToolError as exc:
         handle_tool_error(exc, json_output)

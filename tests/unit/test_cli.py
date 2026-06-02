@@ -26,12 +26,25 @@ class CliManager:
     def __init__(self) -> None:
         self.spawn_task = None
         self.sent_message = None
+        self.usage_calls = []
+        self.terminated = None
+        self.terminate_calls = 0
+        self.cleaned_worktree = None
 
     def spawn_worker(self, request):
         self.spawn_task = request.task
         return {
-            "session": {"id": "ap_cli"},
+            "session": {
+                "id": "ap_cli",
+                "provider_id": request.provider_id,
+                "state": "RUNNING",
+                "artifact_dir": "/tmp/artifacts",
+                "worktree_path": None,
+            },
             "attach_command": "tmux attach -t ap_cli",
+            "artifact_dir": "/tmp/artifacts",
+            "live_control": {"can_send": True},
+            "preferences": {"path": "/tmp/preferences.md"},
         }
 
     def send_worker_message(self, session_id, message):
@@ -52,8 +65,16 @@ class CliManager:
             "pane_target": "ap_cli:0.0",
         }
 
-    def terminate_worker(self, session_id):
-        return {"ok": True, "session_id": session_id, "state": "CANCELLED"}
+    def terminate_worker(self, session_id, reason=None, dry_run=False):
+        self.terminate_calls += 1
+        self.terminated = {"session_id": session_id, "reason": reason, "dry_run": dry_run}
+        return {
+            "ok": True,
+            "session_id": session_id,
+            "state": "CANCELLED",
+            "dry_run": dry_run,
+            "already_terminated": self.terminate_calls > 1,
+        }
 
     def read_transcript(self, session_id, offset=0, limit=4000, tail_lines=None):
         return {
@@ -97,7 +118,16 @@ class CliManager:
 
     def list_sessions(self, states=None, provider_id=None, limit=50, offset=0):
         return {
-            "sessions": [{"id": "ap_cli", "provider_id": provider_id or "fake-question", "state": "RUNNING"}],
+            "sessions": [
+                {
+                    "id": "ap_cli",
+                    "provider_id": provider_id or "fake-question",
+                    "state": "RUNNING",
+                    "role": "explorer",
+                    "repo_path": "/repo",
+                    "created_at": "2026-01-01T00:00:00Z",
+                }
+            ],
             "pagination": {
                 "limit": limit,
                 "offset": offset,
@@ -109,6 +139,47 @@ class CliManager:
             "scope": {"coordinator_id": "coord_cli", "current_coordinator_only": False},
             "states": states,
         }
+
+    def get_session(self, session_id):
+        return {
+            "session": {
+                "id": session_id,
+                "provider_id": "fake-question",
+                "model": "fake",
+                "state": "RUNNING",
+                "role": "explorer",
+                "repo_path": "/repo",
+                "worktree_path": None,
+                "created_at": "2026-01-01T00:00:00Z",
+                "ended_at": None,
+            }
+        }
+
+    def usage_snapshot(self, provider_id=None, backend="combined", allow_interactive=True):
+        self.usage_calls.append(
+            {"kind": "snapshot", "provider_id": provider_id, "backend": backend, "allow_interactive": allow_interactive}
+        )
+        return {"snapshots": [], "source": "live_probe", "backend": backend}
+
+    def cached_usage_snapshot(self, provider_id=None):
+        self.usage_calls.append({"kind": "cached", "provider_id": provider_id})
+        return {"snapshots": [], "source": "sqlite_cache"}
+
+    def usage_summary(self, provider_id=None, refresh=False, backend="combined", allow_interactive=True):
+        self.usage_calls.append(
+            {
+                "kind": "summary",
+                "provider_id": provider_id,
+                "refresh": refresh,
+                "backend": backend,
+                "allow_interactive": allow_interactive,
+            }
+        )
+        return {"providers": {}, "source": "live_probe" if refresh else "sqlite_cache", "backend": backend}
+
+    def cleanup_worktree(self, session_id, force=False, dry_run=False):
+        self.cleaned_worktree = {"session_id": session_id, "force": force, "dry_run": dry_run}
+        return {"session_id": session_id, "removed": not dry_run, "would_remove": True, "dry_run": dry_run}
 
 
 def test_spawn_accepts_task_stdin(monkeypatch) -> None:
@@ -125,6 +196,20 @@ def test_spawn_accepts_task_stdin(monkeypatch) -> None:
     assert manager.spawn_task == "Inspect via stdin"
 
 
+def test_spawn_human_output_is_structured(monkeypatch) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: CliManager())
+
+    result = CliRunner().invoke(
+        app,
+        ["spawn", "--provider", "fake-question", "--repo", ".", "--task", "Inspect read-only."],
+    )
+
+    assert result.exit_code == 0
+    assert "session: ap_cli" in result.output
+    assert "provider: fake-question" in result.output
+    assert "{'session'" not in result.output
+
+
 def test_preferences_command_inits_and_shows_markdown(tmp_path) -> None:
     path = tmp_path / "preferences.md"
     runner = CliRunner()
@@ -139,6 +224,18 @@ def test_preferences_command_inits_and_shows_markdown(tmp_path) -> None:
     assert payload["path"] == str(path)
     assert payload["resource_uri"] == "agentpool://preferences.md"
     assert "AgentPool Preferences" in payload["text"]
+
+
+def test_preferences_init_dry_run_has_no_side_effect(tmp_path) -> None:
+    path = tmp_path / "preferences.md"
+
+    result = CliRunner().invoke(app, ["preferences", "init", "--path", str(path), "--dry-run", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["dry_run"] is True
+    assert payload["would_write"] is True
+    assert not path.exists()
 
 
 def test_send_accepts_stdin(monkeypatch) -> None:
@@ -161,6 +258,53 @@ def test_empty_stdin_errors_use_command_specific_examples() -> None:
     assert "cat task.md | agentpool spawn" in spawn.output
     assert send.exit_code == 1
     assert "cat reply.md | agentpool send" in send.output
+
+
+def test_root_and_group_help_have_examples() -> None:
+    runner = CliRunner()
+    for args in (
+        ["--help"],
+        ["config", "--help"],
+        ["leases", "--help"],
+        ["session", "--help"],
+        ["worktrees", "--help"],
+    ):
+        result = runner.invoke(app, args)
+        assert result.exit_code == 0
+        assert "Examples:" in result.output
+
+
+def test_missing_parameter_errors_include_copy_pasteable_examples() -> None:
+    runner = CliRunner()
+
+    cases = {
+        ("spawn",): "cat task.md | agentpool spawn --provider <provider-id>",
+        ("setup",): "agentpool setup codex",
+        ("observe",): "agentpool observe <session-id>",
+        ("leases", "acquire"): "agentpool leases acquire --session-id <session-id> --file <path>",
+        ("worktrees", "cleanup"): "agentpool worktrees cleanup --session-id <session-id> --dry-run --json",
+    }
+    for args, expected in cases.items():
+        result = runner.invoke(app, list(args))
+        assert result.exit_code == 2
+        assert f"try: {expected}" in result.output
+
+
+def test_models_bad_action_uses_recovery_formatter() -> None:
+    result = CliRunner().invoke(app, ["models", "foo"])
+
+    assert result.exit_code == 1
+    assert "INVALID_REQUEST" in result.output
+    assert "try: agentpool models validate --json" in result.output
+
+
+def test_invalid_output_errors_include_next_command() -> None:
+    runner = CliRunner()
+    for args in (["stats", "--json", "--plain"], ["sessions", "--json", "--plain"]):
+        result = runner.invoke(app, args)
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"]["details"]["example"] == "agentpool stats --since 7d --json"
 
 
 def test_provider_selection_errors_point_to_inventory() -> None:
@@ -187,6 +331,69 @@ def test_control_commands_emit_json(monkeypatch) -> None:
         result = runner.invoke(app, args)
         assert result.exit_code == 0
         assert json.loads(result.output)
+
+
+def test_terminate_dry_run_passes_through(monkeypatch) -> None:
+    manager = CliManager()
+    monkeypatch.setattr("agentpool.cli.manager", lambda: manager)
+
+    result = CliRunner().invoke(app, ["terminate", "ap_cli", "--dry-run", "--json"])
+
+    assert result.exit_code == 0
+    assert manager.terminated == {"session_id": "ap_cli", "reason": None, "dry_run": True}
+    assert json.loads(result.output)["dry_run"] is True
+
+
+def test_terminate_json_preserves_already_terminated(monkeypatch) -> None:
+    manager = CliManager()
+    monkeypatch.setattr("agentpool.cli.manager", lambda: manager)
+    runner = CliRunner()
+
+    first = runner.invoke(app, ["terminate", "ap_cli", "--json"])
+    second = runner.invoke(app, ["terminate", "ap_cli", "--json"])
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert json.loads(first.output)["already_terminated"] is False
+    assert json.loads(second.output)["already_terminated"] is True
+
+
+def test_lifecycle_human_outputs_are_not_raw_dicts(monkeypatch) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: CliManager())
+    runner = CliRunner()
+
+    for args, expected in (
+        (["interrupt", "ap_cli"], "session: ap_cli"),
+        (["terminate", "ap_cli"], "already_terminated: no"),
+        (["collect", "ap_cli"], "artifact_dir: /tmp/artifacts"),
+        (["artifacts", "ap_cli"], "files: none"),
+    ):
+        result = runner.invoke(app, args)
+        assert result.exit_code == 0
+        assert expected in result.output
+        assert "{'" not in result.output
+
+
+def test_interrupt_dry_run_does_not_call_manager(monkeypatch) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: (_ for _ in ()).throw(AssertionError("manager called")))
+
+    result = CliRunner().invoke(app, ["interrupt", "ap_cli", "--dry-run", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["dry_run"] is True
+    assert payload["would_interrupt"] is True
+
+
+def test_leases_release_dry_run_has_no_side_effect(monkeypatch) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: (_ for _ in ()).throw(AssertionError("manager called")))
+
+    result = CliRunner().invoke(app, ["leases", "release", "--lease-id", "7", "--dry-run", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["dry_run"] is True
+    assert payload["lease_id"] == 7
 
 
 def test_transcript_reads_bounded_page(monkeypatch) -> None:
@@ -216,6 +423,87 @@ def test_sessions_accepts_pagination_flags(monkeypatch) -> None:
     assert data["states"] == ["running", "awaiting_user_input"]
 
 
+def test_sessions_human_and_plain_outputs_are_not_raw_dicts(monkeypatch) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: CliManager())
+    runner = CliRunner()
+
+    human = runner.invoke(app, ["sessions"])
+    plain = runner.invoke(app, ["sessions", "--plain"])
+
+    assert human.exit_code == 0
+    assert "ap_cli" in human.output
+    assert "{'sessions'" not in human.output
+    assert plain.exit_code == 0
+    assert "sessions.0.id=ap_cli" in plain.output
+
+
+def test_session_show_returns_one_session(monkeypatch) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: CliManager())
+
+    result = CliRunner().invoke(app, ["session", "show", "ap_cli", "--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["session"]["id"] == "ap_cli"
+
+
+def test_session_show_plain_returns_key_value_lines(monkeypatch) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: CliManager())
+
+    result = CliRunner().invoke(app, ["session", "show", "ap_cli", "--plain"])
+
+    assert result.exit_code == 0
+    assert "session.id=ap_cli" in result.output
+    assert "session.provider_id=fake-question" in result.output
+    assert "{'session'" not in result.output
+
+
+def test_usage_no_interactive_flag_and_env_pass_through(monkeypatch) -> None:
+    manager = CliManager()
+    monkeypatch.setattr("agentpool.cli.manager", lambda: manager)
+
+    result = CliRunner().invoke(app, ["usage", "--provider", "claude-code", "--no-interactive", "--json"])
+
+    assert result.exit_code == 0
+    assert manager.usage_calls[-1]["allow_interactive"] is False
+
+    result = CliRunner().invoke(app, ["usage", "--provider", "claude-code", "--no-interactive-usage", "--json"])
+
+    assert result.exit_code == 0
+    assert manager.usage_calls[-1]["allow_interactive"] is False
+
+    monkeypatch.setenv("AGENTPOOL_NO_INTERACTIVE_USAGE", "1")
+    result = CliRunner().invoke(app, ["usage-summary", "--provider", "claude-code", "--refresh", "--json"])
+
+    assert result.exit_code == 0
+    assert manager.usage_calls[-1]["kind"] == "summary"
+    assert manager.usage_calls[-1]["allow_interactive"] is False
+
+
+def test_worktrees_cleanup_dry_run_and_yes_alias_pass_through(monkeypatch) -> None:
+    manager = CliManager()
+    monkeypatch.setattr("agentpool.cli.manager", lambda: manager)
+
+    result = CliRunner().invoke(
+        app,
+        ["worktrees", "cleanup", "--session-id", "ap_cli", "--dry-run", "--yes", "--json"],
+    )
+
+    assert result.exit_code == 0
+    assert manager.cleaned_worktree == {"session_id": "ap_cli", "force": True, "dry_run": True}
+
+
+def test_config_path_and_print_accept_json() -> None:
+    runner = CliRunner()
+
+    path = runner.invoke(app, ["config", "path", "--json"])
+    printed = runner.invoke(app, ["config", "print", "--json"])
+
+    assert path.exit_code == 0
+    assert "config.yaml" in json.loads(path.output)["path"]
+    assert printed.exit_code == 0
+    assert "providers" in json.loads(printed.output)
+
+
 def test_observe_summary_omits_worker_output(monkeypatch) -> None:
     monkeypatch.setattr("agentpool.cli.manager", lambda: CliManager())
 
@@ -225,6 +513,19 @@ def test_observe_summary_omits_worker_output(monkeypatch) -> None:
     assert '"worker_output"' in result.output
     assert '"included": false' in result.output
     assert "worker text" not in result.output
+
+
+def test_observe_output_writes_json_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("agentpool.cli.manager", lambda: CliManager())
+    output = tmp_path / "observe.json"
+
+    result = CliRunner().invoke(app, ["observe", "ap_cli", "--detail", "excerpt", "--output", str(output)])
+
+    assert result.exit_code == 0
+    assert "observe.json" in result.output
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["session_id"] == "ap_cli"
+    assert payload["worker_output"]["included"] is True
 
 
 def test_collect_json_returns_manifest_shape(monkeypatch) -> None:
@@ -240,7 +541,19 @@ def test_collect_json_returns_manifest_shape(monkeypatch) -> None:
 def test_core_help_has_examples() -> None:
     runner = CliRunner()
     for command in (
+        "doctor",
+        "init",
+        "inventory",
+        "usage",
         "usage-summary",
+        "capacity-summary",
+        "setup",
+        "onboard",
+        "preferences",
+        "smoke",
+        "providers",
+        "models",
+        "stats",
         "sessions",
         "spawn",
         "observe",
@@ -256,5 +569,23 @@ def test_core_help_has_examples() -> None:
         "mcp-config",
     ):
         result = runner.invoke(app, [command, "--help"])
+        assert result.exit_code == 0
+        assert "Examples" in result.output
+
+
+def test_nested_help_has_examples() -> None:
+    runner = CliRunner()
+    for command in (
+        ("session", "show"),
+        ("config", "path"),
+        ("config", "print"),
+        ("config", "validate"),
+        ("leases", "list"),
+        ("leases", "acquire"),
+        ("leases", "release"),
+        ("worktrees", "list"),
+        ("worktrees", "cleanup"),
+    ):
+        result = runner.invoke(app, [*command, "--help"])
         assert result.exit_code == 0
         assert "Examples" in result.output

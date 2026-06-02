@@ -18,11 +18,16 @@ from agentpool.artifacts import (
 from agentpool.config import AgentPoolConfig, load_config
 from agentpool.config import default_provider_config
 from agentpool.event_detection import detect_event, screen_hash, trim_excerpt
-from agentpool.git_worktree import cleanup_worktree, create_worktree, delete_agentpool_branch, list_agentpool_worktrees
+from agentpool.git_worktree import (
+    cleanup_worktree,
+    create_worktree,
+    delete_agentpool_branch,
+    list_agentpool_worktrees,
+    plan_cleanup_worktree,
+)
 from agentpool.models import (
     AgentSession,
     ArtifactRecord,
-    FileLease,
     ObserveEvent,
     ObserveWorkerResponse,
     RuntimeKind,
@@ -715,16 +720,37 @@ class SessionManager:
             worktrees.append({**entry, "active": path in active_worktrees})
         return {"repo_path": str(repo), "worktrees": worktrees}
 
-    def cleanup_worktree(self, session_id: str, force: bool = False) -> dict[str, Any]:
+    def cleanup_worktree(self, session_id: str, force: bool = False, dry_run: bool = False) -> dict[str, Any]:
         session = self._require_session(session_id)
         if not session.worktree_path:
-            return {"removed": False, "reason": "session has no worktree", "session_id": session_id}
+            return {
+                "removed": False,
+                "would_remove": False,
+                "dry_run": dry_run,
+                "reason": "session has no worktree",
+                "session_id": session_id,
+            }
         if active_state(session.state) and not force:
+            if dry_run:
+                return {
+                    "session_id": session_id,
+                    "dry_run": True,
+                    "would_remove": False,
+                    "blocked": True,
+                    "reason": "active",
+                    "state": session.state.value if hasattr(session.state, "value") else session.state,
+                    "path": session.worktree_path,
+                }
             raise ToolError(
                 "WORKTREE_ACTIVE",
                 "Refusing to remove an active session worktree; terminate first or pass force.",
                 {"session_id": session_id, "state": session.state.value if hasattr(session.state, "value") else session.state},
             )
+        if dry_run:
+            return {
+                "session_id": session_id,
+                **plan_cleanup_worktree(Path(session.repo_path), Path(session.worktree_path), force=force),
+            }
         result = cleanup_worktree(Path(session.repo_path), Path(session.worktree_path), force=force)
         self._event(session, "worktree_cleanup", state=session.state.value, metadata={"force": force, **result})
         return {"session_id": session_id, **result}
@@ -774,15 +800,35 @@ class SessionManager:
     def get_session(self, session_id: str) -> dict[str, Any]:
         return {"session": self._require_session(session_id).model_dump(mode="json")}
 
-    def terminate_worker(self, session_id: str, reason: str | None = None) -> dict[str, Any]:
+    def terminate_worker(
+        self,
+        session_id: str,
+        reason: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
         session = self._require_session(session_id)
-        if session.tmux and self.runtime.exists(session.tmux):
-            self.runtime.terminate(session.tmux)
         state = session.state if isinstance(session.state, SessionState) else SessionState(session.state)
+        terminal = not active_state(state)
+        previous_terminate = any(event["event_type"] == "terminate" for event in self.store.list_events(session_id))
+        tmux_exists = bool(session.tmux and self.runtime.exists(session.tmux))
         final_state = state if not active_state(state) else SessionState.CANCELLED
+        plan = {
+            "session_id": session_id,
+            "ok": True,
+            "state": final_state.value,
+            "current_state": state.value,
+            "would_terminate_tmux": tmux_exists and not (terminal and previous_terminate),
+            "already_terminated": terminal and previous_terminate,
+        }
+        if dry_run:
+            return {"dry_run": True, **plan}
+        if plan["already_terminated"]:
+            return plan
+        if tmux_exists:
+            self.runtime.terminate(session.tmux)  # type: ignore[arg-type]
         self.store.update_session_state(session_id, final_state, ended_at=utc_now_iso())
         self._event(session, "terminate", state=final_state.value, metadata={"reason": reason})
-        return {"session_id": session_id, "ok": True, "state": final_state.value}
+        return {**plan, "already_terminated": False}
 
     def reconcile_sessions(self) -> dict[str, Any]:
         reconciled = []

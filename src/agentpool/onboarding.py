@@ -568,6 +568,7 @@ def setup_provider(
     backend: str | None = None,
     run_usage: bool = True,
     absolute_command: bool = True,
+    allow_interactive: bool = True,
 ) -> dict[str, Any]:
     normalized = target.strip().lower()
     setup = SETUP_TARGETS.get(normalized)
@@ -671,13 +672,17 @@ def setup_provider(
 
     if run_usage:
         try:
-            usage = manager.usage_snapshot(provider_id, backend=usage_backend)
+            usage = manager.usage_snapshot(provider_id, backend=usage_backend, allow_interactive=allow_interactive)
             snapshots = usage.get("snapshots") or []
             snapshot = snapshots[0] if snapshots else {}
             result["usage"] = usage
             checks.append(_usage_check(snapshot))
             try:
-                result["capacity_summary"] = manager.usage_summary(provider_id=provider_id, refresh=False)
+                result["capacity_summary"] = manager.usage_summary(
+                    provider_id=provider_id,
+                    refresh=False,
+                    allow_interactive=allow_interactive,
+                )
             except Exception as exc:
                 checks.append(
                     {
@@ -801,6 +806,7 @@ def setup_all_providers(
     backend: str | None = None,
     run_usage: bool = True,
     absolute_command: bool = True,
+    allow_interactive: bool = True,
 ) -> dict[str, Any]:
     results = [
         setup_provider(
@@ -809,6 +815,7 @@ def setup_all_providers(
             backend=backend,
             run_usage=run_usage,
             absolute_command=absolute_command,
+            allow_interactive=allow_interactive,
         )
         for target in SETUP_ALL_TARGETS
     ]

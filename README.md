@@ -110,8 +110,10 @@ agentpool observe <session-id> --wait-for completed,error,question,approval_prom
 agentpool send <session-id> "Continue with the smallest useful check."
 agentpool artifacts <session-id> --json
 agentpool transcript <session-id> --tail-lines 80 --json
+agentpool session show <session-id> --json
 agentpool sessions --recent 10 --json
 agentpool collect <session-id> --json
+agentpool terminate <session-id> --dry-run --json
 agentpool terminate <session-id> --json
 ```
 
@@ -132,6 +134,7 @@ agentpool spawn \
   --isolation worktree
 
 agentpool worktrees list --repo .
+agentpool worktrees cleanup --session-id <session-id> --dry-run --json
 agentpool worktrees cleanup --session-id <session-id>
 ```
 
@@ -143,6 +146,7 @@ requested through `--isolation worktree` or policy configuration.
 
 ```bash
 agentpool usage-summary --refresh --json
+agentpool usage-summary --refresh --no-interactive --json
 agentpool stats --since 7d --json
 agentpool usage-summary --refresh --backend codexbar --json
 agentpool usage-summary --refresh --backend ccusage --provider claude-code --json
@@ -164,7 +168,8 @@ in `~/.agentpool/config.yaml`.
 AgentPool still does not pick an alternative provider for you.
 MCP usage refreshes are intentionally bounded and may return `partial=true`;
 use the CLI commands above when a shell-capable agent needs a complete live
-refresh.
+refresh. Use `--no-interactive` or `AGENTPOOL_NO_INTERACTIVE_USAGE=1` when a
+shell script must avoid provider TUI fallback probes.
 
 ## Provider Matrix
 

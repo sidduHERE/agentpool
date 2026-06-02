@@ -692,6 +692,84 @@ def test_collect_mark_completed_does_not_resurrect_cancelled_session(tmp_path: P
     assert manager.store.get_session(session_id).state == SessionState.CANCELLED  # type: ignore[union-attr]
 
 
+def test_terminate_worker_is_idempotent_after_previous_terminate(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(SpawnWorkerRequest(provider_id="codex-cli", task="one", repo_path=str(tmp_path)))
+    session_id = result["session"]["id"]
+
+    first = manager.terminate_worker(session_id, reason="first")
+    runtime.exists_result = False
+    second = manager.terminate_worker(session_id, reason="retry")
+
+    terminate_events = [
+        event for event in manager.store.list_events(session_id) if event["event_type"] == "terminate"
+    ]
+    assert first["already_terminated"] is False
+    assert second["already_terminated"] is True
+    assert len(terminate_events) == 1
+
+
+def test_terminate_worker_dry_run_has_no_side_effects(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(SpawnWorkerRequest(provider_id="codex-cli", task="one", repo_path=str(tmp_path)))
+    session_id = result["session"]["id"]
+
+    plan = manager.terminate_worker(session_id, dry_run=True)
+
+    assert plan["dry_run"] is True
+    assert plan["would_terminate_tmux"] is True
+    assert runtime.terminated is False
+    assert manager.store.get_session(session_id).state == SessionState.RUNNING  # type: ignore[union-attr]
+    assert [event["event_type"] for event in manager.store.list_events(session_id)] == ["spawn"]
+
+
+def test_worktree_cleanup_dry_run_reports_active_and_forced_plan(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "README.md").write_text("# test\n", encoding="utf-8")
+    _run(["git", "init"], repo)
+    _run(["git", "add", "README.md"], repo)
+    _run(
+        [
+            "git",
+            "-c",
+            "user.name=AgentPool",
+            "-c",
+            "user.email=agentpool@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "init",
+        ],
+        repo,
+    )
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.policy.allowed_providers = []
+    manager = SessionManager(config=config, runtime=RecordingRuntime())  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="fake-patch", task="patch", repo_path=str(repo), isolation="worktree")
+    )
+    session_id = result["session"]["id"]
+
+    active_plan = manager.cleanup_worktree(session_id, dry_run=True)
+    forced_plan = manager.cleanup_worktree(session_id, force=True, dry_run=True)
+
+    assert active_plan["blocked"] is True
+    assert active_plan["would_remove"] is False
+    assert forced_plan["would_remove"] is True
+    assert Path(forced_plan["path"]).exists()
+
+
 def test_reconcile_marks_dead_tmux_sessions_failed(tmp_path: Path) -> None:
     store = Store(tmp_path / "agentpool.sqlite")
     runtime = RecordingRuntime()
@@ -927,7 +1005,21 @@ def test_failed_worktree_spawn_rolls_back_worktree_and_branch(tmp_path: Path) ->
     (repo / "README.md").write_text("# test\n", encoding="utf-8")
     _run(["git", "init"], repo)
     _run(["git", "add", "README.md"], repo)
-    _run(["git", "-c", "user.name=AgentPool", "-c", "user.email=agentpool@example.com", "commit", "-m", "init"], repo)
+    _run(
+        [
+            "git",
+            "-c",
+            "user.name=AgentPool",
+            "-c",
+            "user.email=agentpool@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "init",
+        ],
+        repo,
+    )
     config = load_config(Path("__missing_agentpool_config__.yaml"))
     config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
     manager = SessionManager(config=config, runtime=FailingRuntime())  # type: ignore[arg-type]

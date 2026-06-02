@@ -124,7 +124,24 @@ def test_worktree_patch_collects_diff(manager: SessionManager, tmp_path: Path) -
     (repo / "README.md").write_text("# test\n", encoding="utf-8")
     assert _run(["git", "init"], repo) == 0
     assert _run(["git", "add", "README.md"], repo) == 0
-    assert _run(["git", "-c", "user.name=AgentPool", "-c", "user.email=agentpool@example.com", "commit", "-m", "init"], repo) == 0
+    assert (
+        _run(
+            [
+                "git",
+                "-c",
+                "user.name=AgentPool",
+                "-c",
+                "user.email=agentpool@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "init",
+            ],
+            repo,
+        )
+        == 0
+    )
 
     result = manager.spawn_worker(
         SpawnWorkerRequest(

@@ -52,7 +52,18 @@ def test_redacts_diff_text_before_artifact_write(tmp_path) -> None:
     subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
     subprocess.run(["git", "add", "README.md"], cwd=repo, check=True, capture_output=True)
     subprocess.run(
-        ["git", "-c", "user.name=AgentPool", "-c", "user.email=agentpool@example.com", "commit", "-m", "init"],
+        [
+            "git",
+            "-c",
+            "user.name=AgentPool",
+            "-c",
+            "user.email=agentpool@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "init",
+        ],
         cwd=repo,
         check=True,
         capture_output=True,

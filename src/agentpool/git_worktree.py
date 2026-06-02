@@ -101,12 +101,35 @@ def list_agentpool_worktrees(repo_path: Path) -> list[dict[str, str | bool]]:
     return worktrees
 
 
-def cleanup_worktree(repo_path: Path, worktree_path: Path, force: bool = False) -> dict[str, str | bool]:
+def plan_cleanup_worktree(repo_path: Path, worktree_path: Path, force: bool = False) -> dict[str, str | bool]:
     if not is_git_repo(repo_path):
         raise ToolError("GIT_NOT_REPO", "Worktree cleanup requires a git repository.", {"repo_path": str(repo_path)})
     if not worktree_path.exists():
-        return {"removed": False, "path": str(worktree_path), "reason": "missing"}
+        return {
+            "dry_run": True,
+            "would_remove": False,
+            "blocked": False,
+            "path": str(worktree_path),
+            "reason": "missing",
+        }
     dirty = bool(git_status(worktree_path).strip())
+    blocked = dirty and not force
+    return {
+        "dry_run": True,
+        "would_remove": not blocked,
+        "blocked": blocked,
+        "path": str(worktree_path),
+        "dirty": dirty,
+        "force": force,
+        "reason": "dirty" if blocked else None,
+    }
+
+
+def cleanup_worktree(repo_path: Path, worktree_path: Path, force: bool = False) -> dict[str, str | bool]:
+    plan = plan_cleanup_worktree(repo_path, worktree_path, force=force)
+    if plan.get("reason") == "missing":
+        return {"removed": False, "path": str(worktree_path), "reason": str(plan.get("reason") or "missing")}
+    dirty = bool(plan.get("dirty"))
     if dirty and not force:
         raise ToolError(
             "WORKTREE_DIRTY",

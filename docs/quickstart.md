@@ -29,7 +29,11 @@ cycle. `"ok": true` means the control plane works end to end.
 ```bash
 agentpool inventory --json
 agentpool usage-summary --json          # add --refresh for live probes
+agentpool usage-summary --refresh --no-interactive --json
 ```
+
+Use `--no-interactive` or `AGENTPOOL_NO_INTERACTIVE_USAGE=1` for scripts that
+must avoid provider TUI fallback probes.
 
 ## 4. Run a real worker (explicit provider + isolation)
 
@@ -44,7 +48,9 @@ The result includes a top-level `session_id`. Drive it with:
 ```bash
 agentpool observe <session-id> --wait-for question,completed,error --timeout 120 --json
 agentpool send <session-id> "Continue with the smallest useful check." --json
+agentpool session show <session-id> --json
 agentpool collect <session-id> --json
+agentpool terminate <session-id> --dry-run --json
 agentpool terminate <session-id> --json
 ```
 

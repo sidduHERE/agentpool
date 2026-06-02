@@ -102,7 +102,13 @@ class FakeSetupManager:
             ]
         }
 
-    def usage_snapshot(self, provider_id: str | None = None, backend: str = "combined") -> dict[str, Any]:
+    def usage_snapshot(
+        self,
+        provider_id: str | None = None,
+        backend: str = "combined",
+        allow_interactive: bool = True,
+    ) -> dict[str, Any]:
+        assert allow_interactive is True
         assert backend == ("codexbar" if provider_id == "cursor-cli" else "native")
         if provider_id != "codex-cli":
             return {
@@ -138,8 +144,10 @@ class FakeSetupManager:
         provider_id: str | None = None,
         refresh: bool = False,
         backend: str = "combined",
+        allow_interactive: bool = True,
     ) -> dict[str, Any]:
         assert refresh is False
+        assert allow_interactive is True
         return {
             "providers": {
                 provider_id: {

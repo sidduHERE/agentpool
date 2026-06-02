@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.9 - 2026-06-02
+
+- Harden agent-facing CLI recovery with examples on root/group help, structured
+  `models` action errors, and next-command hints for invalid output choices.
+- Add side-effect-free previews for `preferences init`, `interrupt`, and
+  `leases release`; add `session show --plain`.
+- Format `terminate`, `collect`, and `artifacts` human output without raw Python
+  dicts while preserving JSON payloads.
+- Ship `python -m agentpool` support and expand CLI regression coverage.
+
 ## 0.1.8 - 2026-06-01
 
 - Treat stale usage snapshots as age metadata, not as an unusable-provider
