@@ -82,6 +82,13 @@ notes.
 
 ## Quickstart
 
+For AI agents, start by loading the bundled version-matched skill:
+
+```bash
+agentpool skills get agentpool
+agentpool skills get core --full
+```
+
 ```bash
 agentpool init
 agentpool setup cursor
@@ -290,6 +297,9 @@ default MCP toolset is deliberately small: inventory, usage snapshot, usage
 summary, provider models, preferences, spawn, observe, send, interrupt,
 collect, artifact manifest, transcript paging, and terminate. Add opt-in
 toolsets with `agentpool mcp --toolsets default,stats,sessions,leases,worktrees`.
+
+Shell-capable agents can use `agentpool skills get agentpool` instead of MCP
+resources to load the same core usage guidance from the installed CLI.
 
 Coding agents with shell access should prefer the CLI path. It is more
 token-efficient because large worker output stays in artifact files and

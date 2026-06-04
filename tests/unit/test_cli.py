@@ -264,6 +264,7 @@ def test_root_and_group_help_have_examples() -> None:
     runner = CliRunner()
     for args in (
         ["--help"],
+        ["skills", "--help"],
         ["config", "--help"],
         ["leases", "--help"],
         ["session", "--help"],
@@ -272,6 +273,54 @@ def test_root_and_group_help_have_examples() -> None:
         result = runner.invoke(app, args)
         assert result.exit_code == 0
         assert "Examples:" in result.output
+
+
+def test_root_help_points_agents_to_bundled_skills() -> None:
+    result = CliRunner().invoke(app, ["--help"])
+
+    assert result.exit_code == 0
+    assert "Start here (for AI agents):" in result.output
+    assert "agentpool skills get agentpool" in result.output
+    assert "skills [list]" in result.output
+    assert "skills path [name]" in result.output
+    assert "Skills ship with the CLI" in result.output
+
+
+def test_skills_list_get_path_and_json() -> None:
+    runner = CliRunner()
+
+    listed = runner.invoke(app, ["skills"])
+    listed_json = runner.invoke(app, ["skills", "list", "--json"])
+    skill = runner.invoke(app, ["skills", "get", "agentpool"])
+    full = runner.invoke(app, ["skills", "get", "core", "--full"])
+    path = runner.invoke(app, ["skills", "path", "core"])
+    skill_json = runner.invoke(app, ["skills", "get", "agentpool", "--json"])
+
+    assert listed.exit_code == 0
+    assert "agentpool" in listed.output
+    assert "aliases: core" in listed.output
+    assert listed_json.exit_code == 0
+    assert json.loads(listed_json.output)["skills"][0]["name"] == "agentpool"
+    assert skill.exit_code == 0
+    assert "# AgentPool Skill" in skill.output
+    assert "Typical CLI Flow" in skill.output
+    assert full.exit_code == 0
+    assert "# Reference: Quickstart" in full.output
+    assert "# Examples" in full.output
+    assert path.exit_code == 0
+    assert "agentpool-skill.md" in path.output
+    assert skill_json.exit_code == 0
+    payload = json.loads(skill_json.output)
+    assert payload["skills"][0]["name"] == "agentpool"
+    assert "# AgentPool Skill" in payload["skills"][0]["text"]
+
+
+def test_skills_get_unknown_returns_recovery_hint() -> None:
+    result = CliRunner().invoke(app, ["skills", "get", "missing"])
+
+    assert result.exit_code == 1
+    assert "INVALID_REQUEST" in result.output
+    assert "try: agentpool skills list" in result.output
 
 
 def test_missing_parameter_errors_include_copy_pasteable_examples() -> None:
@@ -555,6 +604,7 @@ def test_core_help_has_examples() -> None:
         "preferences",
         "smoke",
         "providers",
+        "skills",
         "models",
         "stats",
         "sessions",
@@ -580,6 +630,9 @@ def test_nested_help_has_examples() -> None:
     runner = CliRunner()
     for command in (
         ("session", "show"),
+        ("skills", "list"),
+        ("skills", "get"),
+        ("skills", "path"),
         ("config", "path"),
         ("config", "print"),
         ("config", "validate"),

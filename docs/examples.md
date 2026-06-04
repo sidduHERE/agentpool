@@ -1,5 +1,12 @@
 # Examples
 
+Load agent guidance from the installed CLI:
+
+```bash
+agentpool skills get agentpool
+agentpool skills get core --full
+```
+
 Spawn a fake question worker:
 
 ```bash

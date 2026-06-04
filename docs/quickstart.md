@@ -7,6 +7,14 @@ plane, not a router: you pick the provider and model explicitly.
 
 ## 1. Verify the environment
 
+AI agents should load the bundled version-matched skill before inferring flows
+from flags:
+
+```bash
+agentpool skills get agentpool
+agentpool skills get core --full
+```
+
 ```bash
 agentpool init
 agentpool doctor --deep --privacy
@@ -58,6 +66,7 @@ Use `--isolation worktree` instead of `read_only` for tasks that edit files.
 
 ## Next
 
+- CLI agent guidance: `agentpool skills get agentpool`
 - Full agent guidance: `agentpool://skill.md`
 - Setup and privacy detail: `agentpool://onboarding`
 - User delegation preferences: `agentpool://preferences.md`

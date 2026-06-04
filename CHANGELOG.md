@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.10 - 2026-06-03
+
+- Add an AI-agent start section to root help pointing agents at bundled skill
+  guidance before they infer workflows from flags.
+- Add `agentpool skills` with `list`, `get`, and `path` so agents can load
+  version-matched AgentPool usage guidance from the installed CLI.
+- Include examples with packaged docs so `agentpool skills get core --full`
+  returns both the skill and copy-paste CLI flows.
+
 ## 0.1.9 - 2026-06-02
 
 - Harden agent-facing CLI recovery with examples on root/group help, structured

@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import sys
+from importlib import resources
 from pathlib import Path
 from typing import Annotated, Any, Callable
 
@@ -196,6 +197,14 @@ app = AgentPoolTyper(
     cls=AgentPoolGroup,
     help=(
         "Use every coding-agent subscription you pay for: see live usage limits and offload work to providers with headroom.\n\n"
+        "Start here (for AI agents):\n"
+        "  agentpool skills get agentpool\n\n"
+        "  Skills ship with the CLI, stay version-matched, and include workflow patterns, safety boundaries, "
+        "and copy-paste examples. Prefer this over guessing from flag docs alone.\n\n"
+        "  skills \\[list]              List available skills\n"
+        "  skills get agentpool       Core CLI + MCP delegation guide\n"
+        "  skills get core --full     Include quickstart and examples\n"
+        "  skills path \\[name]         Print bundled skill/docs path\n\n"
         "Examples:\n"
         "  agentpool inventory --json\n"
         "  cat task.md | agentpool spawn --provider codex-cli --repo . --task-stdin\n"
@@ -205,6 +214,19 @@ app = AgentPoolTyper(
     ),
     invoke_without_command=True,
     no_args_is_help=True,
+)
+skills_app = AgentPoolTyper(
+    cls=AgentPoolGroup,
+    help=(
+        "List and retrieve bundled AgentPool skill content.\n\n"
+        "Examples:\n"
+        "  agentpool skills\n"
+        "  agentpool skills get agentpool\n"
+        "  agentpool skills get core --full\n"
+        "  agentpool skills path agentpool"
+    ),
+    invoke_without_command=True,
+    no_args_is_help=False,
 )
 config_app = AgentPoolTyper(
     cls=AgentPoolGroup,
@@ -242,11 +264,25 @@ worktrees_app = AgentPoolTyper(
         "  agentpool worktrees cleanup --session-id <session-id> --dry-run --json"
     ),
 )
+app.add_typer(skills_app, name="skills")
 app.add_typer(config_app, name="config")
 app.add_typer(leases_app, name="leases")
 app.add_typer(session_app, name="session")
 app.add_typer(worktrees_app, name="worktrees")
 console = Console()
+
+SKILL_DEFINITIONS: dict[str, dict[str, Any]] = {
+    "agentpool": {
+        "aliases": ["core"],
+        "filename": "agentpool-skill.md",
+        "description": "Core AgentPool CLI + MCP delegation guide. Read this before spawning workers.",
+        "references": ["quickstart.md", "examples.md"],
+    }
+}
+SKILL_ALIASES = {
+    alias: name for name, definition in SKILL_DEFINITIONS.items() for alias in [name, *definition["aliases"]]
+}
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 @app.callback()
@@ -263,6 +299,158 @@ def print_data(data: object, json_output: bool) -> None:
         console.print_json(json.dumps(data, default=str))
     else:
         console.print(data)
+
+
+def _docs_resource(filename: str | None = None) -> Any:
+    docs = resources.files("agentpool").joinpath("docs")
+    return docs.joinpath(filename) if filename else docs
+
+
+def _read_packaged_doc(filename: str) -> str:
+    packaged = _docs_resource(filename)
+    if packaged.is_file():
+        return packaged.read_text(encoding="utf-8")
+    return (PROJECT_ROOT / "docs" / filename).read_text(encoding="utf-8")
+
+
+def _resource_display_path(filename: str | None = None) -> str:
+    packaged = _docs_resource(filename)
+    if packaged.is_file() or (filename is None and packaged.is_dir()):
+        return str(packaged)
+    fallback_docs = PROJECT_ROOT / "docs"
+    return str(fallback_docs / filename) if filename else str(fallback_docs)
+
+
+def _skill_entry(name: str) -> dict[str, Any]:
+    definition = SKILL_DEFINITIONS[name]
+    return {
+        "name": name,
+        "aliases": definition["aliases"],
+        "description": definition["description"],
+        "full_available": bool(definition.get("references")),
+    }
+
+
+def _resolve_skill_name(name: str) -> str:
+    normalized = name.strip().lower()
+    if normalized in SKILL_ALIASES:
+        return SKILL_ALIASES[normalized]
+    raise ToolError(
+        "INVALID_REQUEST",
+        f"Unknown skill {name!r}.",
+        {"example": "agentpool skills list"},
+    )
+
+
+def _skill_text(name: str, *, full: bool = False) -> str:
+    definition = SKILL_DEFINITIONS[name]
+    chunks = [_read_packaged_doc(definition["filename"])]
+    if full:
+        for filename in definition.get("references") or []:
+            title = filename.removesuffix(".md").replace("-", " ").title()
+            chunks.append(f"\n\n# Reference: {title}\n\n{_read_packaged_doc(filename)}")
+    return "".join(chunks)
+
+
+def _print_skills_list(json_output: bool) -> None:
+    data = {"skills": [_skill_entry(name) for name in sorted(SKILL_DEFINITIONS)]}
+    if json_output:
+        console.print_json(json.dumps(data, default=str))
+        return
+    for skill in data["skills"]:
+        aliases = f" (aliases: {', '.join(skill['aliases'])})" if skill["aliases"] else ""
+        console.print(f"  {skill['name']:<12} {skill['description']}{aliases}")
+
+
+@skills_app.callback(invoke_without_command=True)
+def skills_root(
+    ctx: typer.Context,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+) -> None:
+    """List bundled skills when no subcommand is provided."""
+    if ctx.invoked_subcommand is None:
+        _print_skills_list(json_output)
+        raise typer.Exit()
+
+
+@skills_app.command("list")
+def skills_list(json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False) -> None:
+    """List bundled skills.
+
+    Examples:
+      agentpool skills list
+      agentpool skills list --json
+    """
+    _print_skills_list(json_output)
+
+
+@skills_app.command("get")
+def skills_get(
+    name: Annotated[str | None, typer.Argument(help="Skill name, for example: agentpool or core.")] = None,
+    full: Annotated[bool, typer.Option("--full", help="Include quickstart and examples with the core skill.")] = False,
+    all_skills: Annotated[bool, typer.Option("--all", help="Output every bundled skill.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+) -> None:
+    """Output bundled skill content.
+
+    Examples:
+      agentpool skills get agentpool
+      agentpool skills get core --full
+      agentpool skills get --all --json
+    """
+    try:
+        if all_skills:
+            names = sorted(SKILL_DEFINITIONS)
+        elif name:
+            names = [_resolve_skill_name(name)]
+        else:
+            raise ToolError(
+                "INVALID_REQUEST",
+                "Provide a skill name or --all.",
+                {"example": "agentpool skills get agentpool"},
+            )
+        skills = [
+            {
+                **_skill_entry(skill_name),
+                "full": full,
+                "path": _resource_display_path(SKILL_DEFINITIONS[skill_name]["filename"]),
+                "text": _skill_text(skill_name, full=full),
+            }
+            for skill_name in names
+        ]
+        if json_output:
+            console.print_json(json.dumps({"skills": skills}, default=str))
+            return
+        console.print("\n\n".join(skill["text"] for skill in skills), markup=False)
+    except ToolError as exc:
+        handle_tool_error(exc, json_output)
+
+
+@skills_app.command("path")
+def skills_path(
+    name: Annotated[str | None, typer.Argument(help="Optional skill name, for example: agentpool or core.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+) -> None:
+    """Print bundled skill/docs path.
+
+    Examples:
+      agentpool skills path
+      agentpool skills path agentpool
+      agentpool skills path core --json
+    """
+    try:
+        if name:
+            skill_name = _resolve_skill_name(name)
+            path = _resource_display_path(SKILL_DEFINITIONS[skill_name]["filename"])
+            data = {"name": skill_name, "path": path}
+        else:
+            data = {"path": _resource_display_path()}
+        if json_output:
+            console.print_json(json.dumps(data, default=str))
+            return
+        console.print(data["path"], markup=False)
+    except ToolError as exc:
+        handle_tool_error(exc, json_output)
 
 
 def _env_flag(name: str) -> bool:

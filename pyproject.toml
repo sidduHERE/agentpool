@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentpool-cli"
-version = "0.1.9"
+version = "0.1.10"
 description = "Make full use of every coding-agent subscription you pay for: a local CLI + MCP server that surfaces live usage limits and offloads work to providers with headroom."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -54,5 +54,6 @@ include = [
 
 [tool.hatch.build.targets.wheel.force-include]
 "docs/agentpool-skill.md" = "agentpool/docs/agentpool-skill.md"
+"docs/examples.md" = "agentpool/docs/examples.md"
 "docs/onboarding.md" = "agentpool/docs/onboarding.md"
 "docs/quickstart.md" = "agentpool/docs/quickstart.md"
