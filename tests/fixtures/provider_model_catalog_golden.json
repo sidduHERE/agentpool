@@ -27,24 +27,29 @@
     "opencode": null
   },
   "model_counts": {
-    "claude-code": 4,
-    "codex-cli": 6,
+    "claude-code": 15,
+    "codex-cli": 4,
     "copilot-cli": 3,
-    "cursor-cli": 18,
+    "cursor-cli": 129,
     "devin-cli": 4,
     "droid-cli": 28,
-    "opencode": 0
+    "opencode": 191
   },
   "critical_models": {
+    "claude-code": [
+      "claude-opus-4-8",
+      "claude-opus-4-8[1m]",
+      "claude-sonnet-4-6[1m]"
+    ],
     "codex-cli": [
       "gpt-5.5",
       "gpt-5.4",
-      "gpt-5.3-codex",
       "gpt-5.3-codex-spark"
     ],
     "cursor-cli": [
       "composer-2.5",
       "composer-2.5-fast",
+      "claude-opus-4-8-max",
       "gpt-5.4-high"
     ],
     "droid-cli": [
@@ -52,9 +57,42 @@
       "kimi-k2.6",
       "gpt-5.5",
       "gemini-3-flash-preview"
+    ],
+    "opencode": [
+      "opencode/claude-opus-4-8",
+      "opencode/gpt-5.5"
     ]
   },
   "critical_reasoning": {
+    "claude-code:claude-opus-4-8": {
+      "supported": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default": "high"
+    },
+    "claude-code:claude-opus-4-7": {
+      "supported": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default": "xhigh"
+    },
+    "claude-code:claude-sonnet-4-6": {
+      "supported": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "default": "high"
+    },
     "codex-cli:gpt-5.5": {
       "supported": [
         "low",
@@ -71,12 +109,32 @@
         "high",
         "xhigh"
       ],
+      "default": "medium"
+    },
+    "codex-cli:gpt-5.3-codex-spark": {
+      "supported": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
       "default": "high"
     },
     "droid-cli:glm-5.1": {
       "supported": [
         "off",
         "high"
+      ],
+      "default": "high"
+    },
+    "droid-cli:claude-opus-4-7": {
+      "supported": [
+        "off",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
       ],
       "default": "high"
     }

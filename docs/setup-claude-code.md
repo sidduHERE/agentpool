@@ -75,7 +75,14 @@ agentpool usage-summary --provider claude-code --refresh --json
 agentpool models --provider claude-code
 agentpool spawn \
   --provider claude-code \
+  --model claude-opus-4-8 \
+  --reasoning-effort high \
   --repo . \
   --task "Inspect this repo read-only and summarize the main entry points." \
   --isolation read_only
 ```
+
+Claude Code accepts aliases such as `sonnet` and `opus`, full names such as
+`claude-opus-4-8`, and supported `[1m]` suffixes such as
+`claude-opus-4-8[1m]`. Availability of 1M context depends on the Claude account
+and plan; AgentPool only forwards the explicit model id.

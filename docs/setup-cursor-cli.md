@@ -50,4 +50,6 @@ agentpool spawn \
 
 AgentPool launches Cursor with `--workspace <repo>` and uses `--mode ask` for
 read-only isolation. Cursor's `--trust` flag is documented for headless print
-mode, so AgentPool does not use it for interactive tmux workers.
+mode, so AgentPool does not use it for interactive tmux workers. Cursor exposes
+reasoning and 1M context as explicit model ids from `agent models`; choose those
+ids with `--model` when you want them.

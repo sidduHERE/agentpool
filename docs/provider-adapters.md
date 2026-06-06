@@ -37,10 +37,17 @@ Model pinning behavior:
 - `cursor-cli` uses `agent` or `cursor-agent`, adds `--workspace <path>`, and
   uses `--mode ask` for `read_only` isolation because Cursor documents Ask mode
   as read-only Q&A. Its provider default initial prompt mode is `arg`, matching
-  Cursor's documented `[prompt...]` argument.
+  Cursor's documented `[prompt...]` argument. Cursor's reasoning and 1M context
+  variants are explicit model ids from `agent models`, not a separate effort
+  flag.
+- `claude-code` uses `--model` for model pinning and `--effort` for supported
+  Claude Code effort levels. Full model names such as `claude-opus-4-8` and
+  `[1m]` suffixes are catalog entries, but account and plan access still belong
+  to Claude Code.
 - `droid-cli` does not expose interactive `--model`; AgentPool
   writes a minimal `~/.agentpool/runtime-settings/droid-<model>.json` and starts
-  Droid with `--settings <path>`.
+  Droid with `--settings <path>`. Droid `exec` exposes reasoning through
+  `--reasoning-effort`, which AgentPool forwards when requested.
 - AgentPool does not edit or persist provider credentials or user defaults.
 
 Tmux submit behavior:

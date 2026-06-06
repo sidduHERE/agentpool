@@ -100,8 +100,10 @@ initial prompt as a process argument and avoids first-turn paste/submission
 drift.
 
 `spawn_worker.reasoning_effort` and `spawn_worker.service_tier` are optional
-provider controls. For `codex-cli`, they become process-local Codex overrides;
-AgentPool does not edit the user's Codex config.
+provider controls. For `claude-code`, reasoning becomes `--effort`; for
+`droid-cli`, it becomes `--reasoning-effort`; for `codex-cli`, reasoning and
+service tier become process-local Codex overrides. AgentPool does not edit the
+user's provider config.
 
 ## Output Detail And Lockdown
 

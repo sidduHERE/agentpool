@@ -207,6 +207,7 @@ class SessionManager:
                     "model_arg": metadata.get("model_arg"),
                     "model_selection": metadata.get("model_selection", "model_arg"),
                     "default_initial_prompt_mode": metadata.get("default_initial_prompt_mode", "send_after_launch"),
+                    "reasoning_effort_arg": metadata.get("reasoning_effort_arg"),
                     "reasoning_effort_config_key": metadata.get("reasoning_effort_config_key"),
                     "service_tier_config_key": metadata.get("service_tier_config_key"),
                     "submit_keys": metadata.get("submit_keys", []),
@@ -1069,7 +1070,9 @@ def _default_reasoning_effort(
     models: list[dict[str, Any]],
     model: str | None,
 ) -> str | None:
-    if not model or not provider_metadata.get("reasoning_effort_config_key"):
+    if not model or not (
+        provider_metadata.get("reasoning_effort_config_key") or provider_metadata.get("reasoning_effort_arg")
+    ):
         return None
     for entry in models:
         if not isinstance(entry, dict) or entry.get("id") != model:

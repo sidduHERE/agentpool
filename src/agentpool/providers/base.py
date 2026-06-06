@@ -146,6 +146,8 @@ class CommandProviderAdapter:
         if request.model and Capability.SUPPORTS_MODEL_ARG in self.capabilities():
             model_arg = str(self.config.metadata.get("model_arg") or "--model")
             command.extend([model_arg, request.model])
+        if request.reasoning_effort and self.config.metadata.get("reasoning_effort_arg"):
+            command.extend([str(self.config.metadata["reasoning_effort_arg"]), request.reasoning_effort])
         return command
 
     def build_initial_prompt(self, request: SpawnWorkerRequest, session_id: str, workdir: Path) -> str:
@@ -286,6 +288,9 @@ class CodexCliAdapter(CommandProviderAdapter):
 
 class OpenCodeAdapter(CommandProviderAdapter):
     vendor = "OpenCode"
+
+    def capabilities(self) -> list[Capability]:
+        return super().capabilities() + [Capability.SUPPORTS_MODEL_ARG]
 
 
 class CursorCliAdapter(CommandProviderAdapter):

@@ -5,22 +5,219 @@
       "default_model": "sonnet",
       "smoke_model": "sonnet",
       "model_arg": "--model",
-      "catalog_completeness": "cli_help_aliases_and_examples",
+      "catalog_completeness": "claude_code_docs_and_local_help",
       "quirks": [
         "interactive_usage_command",
-        "startup_mcp_warnings_do_not_block"
+        "startup_mcp_warnings_do_not_block",
+        "model_aliases_can_be_pinned_by_anthropic_default_env",
+        "effort_falls_back_to_nearest_supported_level",
+        "1m_context_suffix_requires_plan_or_usage_credits"
       ],
       "models": [
         {
           "id": "sonnet",
           "display_name": "Claude Sonnet",
           "source": "config",
-          "confidence": "local_config",
+          "confidence": "official",
           "metadata": {
             "family": "claude",
             "reasoning": {
               "supported": [
-                "off",
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          },
+          "aliases": [
+            "claude-sonnet-4-6"
+          ]
+        },
+        {
+          "id": "sonnet[1m]",
+          "display_name": "Claude Sonnet 1M",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          },
+          "aliases": [
+            "claude-sonnet-4-6[1m]"
+          ]
+        },
+        {
+          "id": "opus",
+          "display_name": "Claude Opus",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "default": "high"
+            }
+          },
+          "aliases": [
+            "claude-opus-4-8"
+          ]
+        },
+        {
+          "id": "opus[1m]",
+          "display_name": "Claude Opus 1M",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "default": "high"
+            }
+          },
+          "aliases": [
+            "claude-opus-4-8[1m]"
+          ]
+        },
+        {
+          "id": "haiku",
+          "display_name": "Claude Haiku",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude"
+          },
+          "aliases": [
+            "claude-haiku-4-5-20251001"
+          ]
+        },
+        {
+          "id": "opusplan",
+          "display_name": "Claude Opus Plan",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "hybrid": "opus_for_plan_sonnet_for_execution",
+            "context_window": "200k"
+          }
+        },
+        {
+          "id": "claude-opus-4-8",
+          "display_name": "Claude Opus 4.8",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "default": "high"
+            }
+          },
+          "aliases": [
+            "opus"
+          ]
+        },
+        {
+          "id": "claude-opus-4-8[1m]",
+          "display_name": "Claude Opus 4.8 1M",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "default": "high"
+            }
+          },
+          "aliases": [
+            "opus[1m]"
+          ]
+        },
+        {
+          "id": "claude-opus-4-7",
+          "display_name": "Claude Opus 4.7",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "default": "xhigh"
+            }
+          }
+        },
+        {
+          "id": "claude-opus-4-7[1m]",
+          "display_name": "Claude Opus 4.7 1M",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "default": "xhigh"
+            }
+          }
+        },
+        {
+          "id": "claude-opus-4-6",
+          "display_name": "Claude Opus 4.6",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
                 "low",
                 "medium",
                 "high",
@@ -31,15 +228,15 @@
           }
         },
         {
-          "id": "opus",
-          "display_name": "Claude Opus",
+          "id": "claude-opus-4-6[1m]",
+          "display_name": "Claude Opus 4.6 1M",
           "source": "config",
-          "confidence": "local_config",
+          "confidence": "official",
           "metadata": {
             "family": "claude",
+            "context_window": "1m",
             "reasoning": {
               "supported": [
-                "off",
                 "low",
                 "medium",
                 "high",
@@ -53,37 +250,33 @@
           "id": "claude-sonnet-4-6",
           "display_name": "Claude Sonnet 4.6",
           "source": "config",
-          "confidence": "observed",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude",
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "max"
+              ],
+              "default": "high"
+            }
+          },
           "aliases": [
             "sonnet"
-          ],
-          "metadata": {
-            "family": "claude",
-            "reasoning": {
-              "supported": [
-                "off",
-                "low",
-                "medium",
-                "high",
-                "max"
-              ],
-              "default": "high"
-            }
-          }
+          ]
         },
         {
-          "id": "claude-opus-4-6",
-          "display_name": "Claude Opus 4.6",
+          "id": "claude-sonnet-4-6[1m]",
+          "display_name": "Claude Sonnet 4.6 1M",
           "source": "config",
-          "confidence": "local_config",
-          "aliases": [
-            "opus"
-          ],
+          "confidence": "official",
           "metadata": {
             "family": "claude",
+            "context_window": "1m",
             "reasoning": {
               "supported": [
-                "off",
                 "low",
                 "medium",
                 "high",
@@ -91,9 +284,25 @@
               ],
               "default": "high"
             }
-          }
+          },
+          "aliases": [
+            "sonnet[1m]"
+          ]
+        },
+        {
+          "id": "claude-haiku-4-5-20251001",
+          "display_name": "Claude Haiku 4.5",
+          "source": "config",
+          "confidence": "official",
+          "metadata": {
+            "family": "claude"
+          },
+          "aliases": [
+            "haiku"
+          ]
         }
-      ]
+      ],
+      "reasoning_effort_arg": "--effort"
     },
     "codex-cli": {
       "default_model": "gpt-5.5",
@@ -105,11 +314,12 @@
       "submit_keys": [
         "C-m"
       ],
-      "catalog_completeness": "codex_debug_models_subset",
+      "catalog_completeness": "codex_debug_models_live",
       "quirks": [
         "startup_update_prompt",
         "startup_trust_prompt",
-        "low_weekly_limit_warning"
+        "low_weekly_limit_warning",
+        "service_tier_priority_is_labeled_fast"
       ],
       "models": [
         {
@@ -119,6 +329,12 @@
           "confidence": "observed",
           "metadata": {
             "family": "gpt",
+            "service_tiers": [
+              "priority"
+            ],
+            "speed_tiers": [
+              "fast"
+            ],
             "reasoning": {
               "supported": [
                 "low",
@@ -127,10 +343,7 @@
                 "xhigh"
               ],
               "default": "medium"
-            },
-            "service_tiers": [
-              "fast"
-            ]
+            }
           }
         },
         {
@@ -140,27 +353,12 @@
           "confidence": "observed",
           "metadata": {
             "family": "gpt",
-            "reasoning": {
-              "supported": [
-                "low",
-                "medium",
-                "high",
-                "xhigh"
-              ],
-              "default": "high"
-            },
             "service_tiers": [
+              "priority"
+            ],
+            "speed_tiers": [
               "fast"
-            ]
-          }
-        },
-        {
-          "id": "gpt-5.4-mini",
-          "display_name": "GPT-5.4 Mini",
-          "source": "config",
-          "confidence": "observed",
-          "metadata": {
-            "family": "gpt",
+            ],
             "reasoning": {
               "supported": [
                 "low",
@@ -168,17 +366,17 @@
                 "high",
                 "xhigh"
               ],
-              "default": "high"
+              "default": "medium"
             }
           }
         },
         {
-          "id": "gpt-5.3-codex",
-          "display_name": "GPT-5.3 Codex",
+          "id": "gpt-5.4-mini",
+          "display_name": "GPT-5.4-Mini",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "gpt-codex",
+            "family": "gpt",
             "reasoning": {
               "supported": [
                 "low",
@@ -192,7 +390,7 @@
         },
         {
           "id": "gpt-5.3-codex-spark",
-          "display_name": "GPT-5.3 Codex Spark",
+          "display_name": "GPT-5.3-Codex-Spark",
           "source": "config",
           "confidence": "observed",
           "metadata": {
@@ -207,24 +405,6 @@
               "default": "high"
             }
           }
-        },
-        {
-          "id": "gpt-5.2",
-          "display_name": "GPT-5.2",
-          "source": "config",
-          "confidence": "observed",
-          "metadata": {
-            "family": "gpt",
-            "reasoning": {
-              "supported": [
-                "low",
-                "medium",
-                "high",
-                "xhigh"
-              ],
-              "default": "low"
-            }
-          }
         }
       ]
     },
@@ -234,51 +414,16 @@
       "model_arg": "--model",
       "default_initial_prompt_mode": "arg",
       "read_only_mode_arg": "ask",
-      "catalog_completeness": "cursor_agent_launch_error_observed",
+      "catalog_completeness": "cursor_agent_models_observed",
       "quirks": [
         "binary_may_be_agent_or_cursor-agent",
         "read_only_uses_ask_mode",
         "trust_flag_headless_only",
         "native_usage_interactive_slash_usage_only",
-        "codexbar_cursor_usage_optional"
+        "codexbar_cursor_usage_optional",
+        "reasoning_and_1m_are_encoded_in_model_ids"
       ],
       "models": [
-        {
-          "id": "composer-2.5",
-          "display_name": "Composer 2.5",
-          "source": "config",
-          "confidence": "observed",
-          "metadata": {
-            "family": "cursor"
-          }
-        },
-        {
-          "id": "composer-2.5-fast",
-          "display_name": "Composer 2.5 Fast",
-          "source": "config",
-          "confidence": "observed",
-          "metadata": {
-            "family": "cursor"
-          }
-        },
-        {
-          "id": "composer-2",
-          "display_name": "Composer 2",
-          "source": "config",
-          "confidence": "observed",
-          "metadata": {
-            "family": "cursor"
-          }
-        },
-        {
-          "id": "composer-2-fast",
-          "display_name": "Composer 2 Fast",
-          "source": "config",
-          "confidence": "observed",
-          "metadata": {
-            "family": "cursor"
-          }
-        },
         {
           "id": "auto",
           "display_name": "Auto",
@@ -289,44 +434,46 @@
           }
         },
         {
-          "id": "gpt-5.5-high",
-          "display_name": "GPT-5.5 High",
+          "id": "gpt-5.3-codex-low",
+          "display_name": "Codex 5.3 Low",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "gpt"
+            "family": "gpt-codex"
           }
         },
         {
-          "id": "gpt-5.5-high-fast",
-          "display_name": "GPT-5.5 High Fast",
+          "id": "gpt-5.3-codex-low-fast",
+          "display_name": "Codex 5.3 Low Fast",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "gpt"
+            "family": "gpt-codex",
+            "speed_tier": "fast"
           }
         },
         {
-          "id": "gpt-5.4-high",
-          "display_name": "GPT-5.4 High",
+          "id": "gpt-5.3-codex",
+          "display_name": "Codex 5.3",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "gpt"
+            "family": "gpt-codex"
           }
         },
         {
-          "id": "gpt-5.4-high-fast",
-          "display_name": "GPT-5.4 High Fast",
+          "id": "gpt-5.3-codex-fast",
+          "display_name": "Codex 5.3 Fast",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "gpt"
+            "family": "gpt-codex",
+            "speed_tier": "fast"
           }
         },
         {
           "id": "gpt-5.3-codex-high",
-          "display_name": "GPT-5.3 Codex High",
+          "display_name": "Codex 5.3 High",
           "source": "config",
           "confidence": "observed",
           "metadata": {
@@ -335,7 +482,17 @@
         },
         {
           "id": "gpt-5.3-codex-high-fast",
-          "display_name": "GPT-5.3 Codex High Fast",
+          "display_name": "Codex 5.3 High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.3-codex-xhigh",
+          "display_name": "Codex 5.3 Extra High",
           "source": "config",
           "confidence": "observed",
           "metadata": {
@@ -343,17 +500,905 @@
           }
         },
         {
-          "id": "claude-4.6-sonnet-medium",
-          "display_name": "Claude 4.6 Sonnet Medium",
+          "id": "gpt-5.3-codex-xhigh-fast",
+          "display_name": "Codex 5.3 Extra High Fast",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "claude"
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.2",
+          "display_name": "GPT-5.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex-low",
+          "display_name": "Codex 5.2 Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex-low-fast",
+          "display_name": "Codex 5.2 Low Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex",
+          "display_name": "Codex 5.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex-fast",
+          "display_name": "Codex 5.2 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex-high",
+          "display_name": "Codex 5.2 High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex-high-fast",
+          "display_name": "Codex 5.2 High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex-xhigh",
+          "display_name": "Codex 5.2 Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.2-codex-xhigh-fast",
+          "display_name": "Codex 5.2 Extra High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-low",
+          "display_name": "Codex 5.1 Max Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-low-fast",
+          "display_name": "Codex 5.1 Max Low Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-medium",
+          "display_name": "Codex 5.1 Max",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-medium-fast",
+          "display_name": "Codex 5.1 Max Medium Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-high",
+          "display_name": "Codex 5.1 Max High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-high-fast",
+          "display_name": "Codex 5.1 Max High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-xhigh",
+          "display_name": "Codex 5.1 Max Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-max-xhigh-fast",
+          "display_name": "Codex 5.1 Max Extra High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "composer-2.5",
+          "display_name": "Composer 2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "cursor"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-high",
+          "display_name": "Opus 4.8 1M Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-high-fast",
+          "display_name": "Opus 4.8 1M Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "gpt-5.5-high",
+          "display_name": "GPT-5.5 1M High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.5-high-fast",
+          "display_name": "GPT-5.5 High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-high",
+          "display_name": "Opus 4.7 1M High Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-high-fast",
+          "display_name": "Opus 4.7 1M High Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "gpt-5.4-high",
+          "display_name": "GPT-5.4 1M High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.4-high-fast",
+          "display_name": "GPT-5.4 High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-4.6-opus-high-thinking",
+          "display_name": "Opus 4.6 1M Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "composer-2.5-fast",
+          "display_name": "Composer 2.5 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "cursor",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-low",
+          "display_name": "Opus 4.8 1M Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-low-fast",
+          "display_name": "Opus 4.8 1M Low Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-medium",
+          "display_name": "Opus 4.8 1M Medium",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-medium-fast",
+          "display_name": "Opus 4.8 1M Medium Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-high",
+          "display_name": "Opus 4.8 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-high-fast",
+          "display_name": "Opus 4.8 1M Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-xhigh",
+          "display_name": "Opus 4.8 1M Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-xhigh-fast",
+          "display_name": "Opus 4.8 1M Extra High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-max",
+          "display_name": "Opus 4.8 1M Max",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-max-fast",
+          "display_name": "Opus 4.8 1M Max Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-low",
+          "display_name": "Opus 4.8 1M Low Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-low-fast",
+          "display_name": "Opus 4.8 1M Low Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-medium",
+          "display_name": "Opus 4.8 1M Medium Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-medium-fast",
+          "display_name": "Opus 4.8 1M Medium Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-xhigh",
+          "display_name": "Opus 4.8 1M Extra High Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-xhigh-fast",
+          "display_name": "Opus 4.8 1M Extra High Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-max",
+          "display_name": "Opus 4.8 1M Max Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-8-thinking-max-fast",
+          "display_name": "Opus 4.8 1M Max Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "gpt-5.5-none",
+          "display_name": "GPT-5.5 1M None",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.5-none-fast",
+          "display_name": "GPT-5.5 None Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.5-low",
+          "display_name": "GPT-5.5 1M Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.5-low-fast",
+          "display_name": "GPT-5.5 Low Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.5-medium",
+          "display_name": "GPT-5.5 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.5-medium-fast",
+          "display_name": "GPT-5.5 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.5-extra-high",
+          "display_name": "GPT-5.5 1M Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.5-extra-high-fast",
+          "display_name": "GPT-5.5 Extra High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-4.6-sonnet-medium",
+          "display_name": "Sonnet 4.6 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
           }
         },
         {
           "id": "claude-4.6-sonnet-medium-thinking",
-          "display_name": "Claude 4.6 Sonnet Medium Thinking",
+          "display_name": "Sonnet 4.6 1M Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-low",
+          "display_name": "Opus 4.7 1M Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-low-fast",
+          "display_name": "Opus 4.7 1M Low Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-medium",
+          "display_name": "Opus 4.7 1M Medium",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-medium-fast",
+          "display_name": "Opus 4.7 1M Medium Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-high",
+          "display_name": "Opus 4.7 1M High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-high-fast",
+          "display_name": "Opus 4.7 1M High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-xhigh",
+          "display_name": "Opus 4.7 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-xhigh-fast",
+          "display_name": "Opus 4.7 1M Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-max",
+          "display_name": "Opus 4.7 1M Max",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-max-fast",
+          "display_name": "Opus 4.7 1M Max Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-low",
+          "display_name": "Opus 4.7 1M Low Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-low-fast",
+          "display_name": "Opus 4.7 1M Low Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-medium",
+          "display_name": "Opus 4.7 1M Medium Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-medium-fast",
+          "display_name": "Opus 4.7 1M Medium Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-xhigh",
+          "display_name": "Opus 4.7 1M Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-xhigh-fast",
+          "display_name": "Opus 4.7 1M Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-max",
+          "display_name": "Opus 4.7 1M Max Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-opus-4-7-thinking-max-fast",
+          "display_name": "Opus 4.7 1M Max Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "grok-build-0.1",
+          "display_name": "Grok Build 0.1 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.4-low",
+          "display_name": "GPT-5.4 1M Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.4-medium",
+          "display_name": "GPT-5.4 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.4-medium-fast",
+          "display_name": "GPT-5.4 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.4-xhigh",
+          "display_name": "GPT-5.4 1M Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "gpt-5.4-xhigh-fast",
+          "display_name": "GPT-5.4 Extra High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "claude-4.6-opus-high",
+          "display_name": "Opus 4.6 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-4.6-opus-max",
+          "display_name": "Opus 4.6 1M Max",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-4.6-opus-high-thinking-fast",
+          "display_name": "Opus 4.6 1M Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-4.6-opus-max-thinking",
+          "display_name": "Opus 4.6 1M Max Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-4.6-opus-max-thinking-fast",
+          "display_name": "Opus 4.6 1M Max Thinking Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "context_window": "1m",
+            "speed_tier": "fast",
+            "thinking": true
+          }
+        },
+        {
+          "id": "claude-4.5-opus-high",
+          "display_name": "Opus 4.5",
           "source": "config",
           "confidence": "observed",
           "metadata": {
@@ -361,12 +1406,80 @@
           }
         },
         {
-          "id": "claude-opus-4-7-high",
-          "display_name": "Claude Opus 4.7 High",
+          "id": "claude-4.5-opus-high-thinking",
+          "display_name": "Opus 4.5 Thinking",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "claude"
+            "family": "claude",
+            "thinking": true
+          }
+        },
+        {
+          "id": "gpt-5.2-low",
+          "display_name": "GPT-5.2 Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.2-low-fast",
+          "display_name": "GPT-5.2 Low Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.2-fast",
+          "display_name": "GPT-5.2 Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.2-high",
+          "display_name": "GPT-5.2 High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.2-high-fast",
+          "display_name": "GPT-5.2 High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
+          }
+        },
+        {
+          "id": "gpt-5.2-xhigh",
+          "display_name": "GPT-5.2 Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.2-xhigh-fast",
+          "display_name": "GPT-5.2 Extra High Fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt",
+            "speed_tier": "fast"
           }
         },
         {
@@ -379,6 +1492,152 @@
           }
         },
         {
+          "id": "gpt-5.4-mini-none",
+          "display_name": "GPT-5.4 Mini None",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-mini-low",
+          "display_name": "GPT-5.4 Mini Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-mini-medium",
+          "display_name": "GPT-5.4 Mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-mini-high",
+          "display_name": "GPT-5.4 Mini High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-mini-xhigh",
+          "display_name": "GPT-5.4 Mini Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-nano-none",
+          "display_name": "GPT-5.4 Nano None",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-nano-low",
+          "display_name": "GPT-5.4 Nano Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-nano-medium",
+          "display_name": "GPT-5.4 Nano",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-nano-high",
+          "display_name": "GPT-5.4 Nano High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.4-nano-xhigh",
+          "display_name": "GPT-5.4 Nano Extra High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "grok-4.3",
+          "display_name": "Grok 4.3 1M",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok",
+            "context_window": "1m"
+          }
+        },
+        {
+          "id": "claude-4.5-sonnet",
+          "display_name": "Sonnet 4.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "claude-4.5-sonnet-thinking",
+          "display_name": "Sonnet 4.5 Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "thinking": true
+          }
+        },
+        {
+          "id": "gpt-5.1-low",
+          "display_name": "GPT-5.1 Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.1",
+          "display_name": "GPT-5.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "gpt-5.1-high",
+          "display_name": "GPT-5.1 High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
           "id": "gemini-3-flash",
           "display_name": "Gemini 3 Flash",
           "source": "config",
@@ -388,12 +1647,67 @@
           }
         },
         {
-          "id": "grok-4.3",
-          "display_name": "Grok 4.3",
+          "id": "gemini-3.5-flash",
+          "display_name": "Gemini 3.5 Flash",
           "source": "config",
           "confidence": "observed",
           "metadata": {
-            "family": "grok"
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-mini-low",
+          "display_name": "Codex 5.1 Mini Low",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-mini",
+          "display_name": "Codex 5.1 Mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "gpt-5.1-codex-mini-high",
+          "display_name": "Codex 5.1 Mini High",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "claude-4-sonnet",
+          "display_name": "Sonnet 4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "claude-4-sonnet-thinking",
+          "display_name": "Sonnet 4 Thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude",
+            "thinking": true
+          }
+        },
+        {
+          "id": "gpt-5-mini",
+          "display_name": "GPT-5 Mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
           }
         },
         {
@@ -408,12 +1722,1734 @@
       ]
     },
     "opencode": {
-      "catalog_completeness": "not_verified",
+      "catalog_completeness": "opencode_models_observed",
       "quirks": [
         "live_smoke_skipped",
-        "native_usage_unknown"
+        "native_usage_unknown",
+        "models_are_provider_slash_model_ids"
       ],
-      "models": []
+      "models": [
+        {
+          "id": "opencode/big-pickle",
+          "display_name": "opencode/big-pickle",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/claude-haiku-4-5",
+          "display_name": "opencode/claude-haiku-4-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-opus-4-1",
+          "display_name": "opencode/claude-opus-4-1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-opus-4-5",
+          "display_name": "opencode/claude-opus-4-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-opus-4-6",
+          "display_name": "opencode/claude-opus-4-6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-opus-4-7",
+          "display_name": "opencode/claude-opus-4-7",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-opus-4-8",
+          "display_name": "opencode/claude-opus-4-8",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-sonnet-4",
+          "display_name": "opencode/claude-sonnet-4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-sonnet-4-5",
+          "display_name": "opencode/claude-sonnet-4-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/claude-sonnet-4-6",
+          "display_name": "opencode/claude-sonnet-4-6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "opencode/deepseek-v4-flash",
+          "display_name": "opencode/deepseek-v4-flash",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/deepseek-v4-flash-free",
+          "display_name": "opencode/deepseek-v4-flash-free",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/gemini-3-flash",
+          "display_name": "opencode/gemini-3-flash",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "opencode/gemini-3.1-pro",
+          "display_name": "opencode/gemini-3.1-pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "opencode/gemini-3.5-flash",
+          "display_name": "opencode/gemini-3.5-flash",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "opencode/glm-5",
+          "display_name": "opencode/glm-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/glm-5.1",
+          "display_name": "opencode/glm-5.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/gpt-5",
+          "display_name": "opencode/gpt-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5-codex",
+          "display_name": "opencode/gpt-5-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "opencode/gpt-5-nano",
+          "display_name": "opencode/gpt-5-nano",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.1",
+          "display_name": "opencode/gpt-5.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.1-codex",
+          "display_name": "opencode/gpt-5.1-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.1-codex-max",
+          "display_name": "opencode/gpt-5.1-codex-max",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.1-codex-mini",
+          "display_name": "opencode/gpt-5.1-codex-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.2",
+          "display_name": "opencode/gpt-5.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.2-codex",
+          "display_name": "opencode/gpt-5.2-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.3-codex",
+          "display_name": "opencode/gpt-5.3-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.3-codex-spark",
+          "display_name": "opencode/gpt-5.3-codex-spark",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.4",
+          "display_name": "opencode/gpt-5.4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.4-mini",
+          "display_name": "opencode/gpt-5.4-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.4-nano",
+          "display_name": "opencode/gpt-5.4-nano",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.4-pro",
+          "display_name": "opencode/gpt-5.4-pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.5",
+          "display_name": "opencode/gpt-5.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/gpt-5.5-pro",
+          "display_name": "opencode/gpt-5.5-pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "opencode/grok-build-0.1",
+          "display_name": "opencode/grok-build-0.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok"
+          }
+        },
+        {
+          "id": "opencode/kimi-k2.5",
+          "display_name": "opencode/kimi-k2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "kimi"
+          }
+        },
+        {
+          "id": "opencode/kimi-k2.6",
+          "display_name": "opencode/kimi-k2.6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "kimi"
+          }
+        },
+        {
+          "id": "opencode/mimo-v2.5-free",
+          "display_name": "opencode/mimo-v2.5-free",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/minimax-m2.5",
+          "display_name": "opencode/minimax-m2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/minimax-m2.7",
+          "display_name": "opencode/minimax-m2.7",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/minimax-m3-free",
+          "display_name": "opencode/minimax-m3-free",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/nemotron-3-ultra-free",
+          "display_name": "opencode/nemotron-3-ultra-free",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/qwen3.5-plus",
+          "display_name": "opencode/qwen3.5-plus",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "opencode/qwen3.6-plus",
+          "display_name": "opencode/qwen3.6-plus",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "opencode"
+          }
+        },
+        {
+          "id": "azure/claude-haiku-4-5",
+          "display_name": "azure/claude-haiku-4-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "azure/claude-opus-4-1",
+          "display_name": "azure/claude-opus-4-1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "azure/claude-opus-4-5",
+          "display_name": "azure/claude-opus-4-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "azure/claude-opus-4-6",
+          "display_name": "azure/claude-opus-4-6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "azure/claude-sonnet-4-5",
+          "display_name": "azure/claude-sonnet-4-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "azure/claude-sonnet-4-6",
+          "display_name": "azure/claude-sonnet-4-6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "azure/codestral-2501",
+          "display_name": "azure/codestral-2501",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "mistral"
+          }
+        },
+        {
+          "id": "azure/codex-mini",
+          "display_name": "azure/codex-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "azure/cohere-command-a",
+          "display_name": "azure/cohere-command-a",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/cohere-command-r-08-2024",
+          "display_name": "azure/cohere-command-r-08-2024",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/cohere-command-r-plus-08-2024",
+          "display_name": "azure/cohere-command-r-plus-08-2024",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/cohere-embed-v-4-0",
+          "display_name": "azure/cohere-embed-v-4-0",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/cohere-embed-v3-english",
+          "display_name": "azure/cohere-embed-v3-english",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/cohere-embed-v3-multilingual",
+          "display_name": "azure/cohere-embed-v3-multilingual",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/deepseek-r1",
+          "display_name": "azure/deepseek-r1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/deepseek-r1-0528",
+          "display_name": "azure/deepseek-r1-0528",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/deepseek-v3-0324",
+          "display_name": "azure/deepseek-v3-0324",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/deepseek-v3.1",
+          "display_name": "azure/deepseek-v3.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/deepseek-v3.2",
+          "display_name": "azure/deepseek-v3.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/deepseek-v3.2-speciale",
+          "display_name": "azure/deepseek-v3.2-speciale",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/gpt-3.5-turbo-0125",
+          "display_name": "azure/gpt-3.5-turbo-0125",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-3.5-turbo-0301",
+          "display_name": "azure/gpt-3.5-turbo-0301",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-3.5-turbo-0613",
+          "display_name": "azure/gpt-3.5-turbo-0613",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-3.5-turbo-1106",
+          "display_name": "azure/gpt-3.5-turbo-1106",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-3.5-turbo-instruct",
+          "display_name": "azure/gpt-3.5-turbo-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4",
+          "display_name": "azure/gpt-4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4-32k",
+          "display_name": "azure/gpt-4-32k",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4-turbo",
+          "display_name": "azure/gpt-4-turbo",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4-turbo-vision",
+          "display_name": "azure/gpt-4-turbo-vision",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4.1",
+          "display_name": "azure/gpt-4.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4.1-mini",
+          "display_name": "azure/gpt-4.1-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4.1-nano",
+          "display_name": "azure/gpt-4.1-nano",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4o",
+          "display_name": "azure/gpt-4o",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-4o-mini",
+          "display_name": "azure/gpt-4o-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5",
+          "display_name": "azure/gpt-5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5-chat",
+          "display_name": "azure/gpt-5-chat",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5-codex",
+          "display_name": "azure/gpt-5-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "azure/gpt-5-mini",
+          "display_name": "azure/gpt-5-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5-nano",
+          "display_name": "azure/gpt-5-nano",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5-pro",
+          "display_name": "azure/gpt-5-pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.1",
+          "display_name": "azure/gpt-5.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.1-chat",
+          "display_name": "azure/gpt-5.1-chat",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.1-codex",
+          "display_name": "azure/gpt-5.1-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "azure/gpt-5.1-codex-max",
+          "display_name": "azure/gpt-5.1-codex-max",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "azure/gpt-5.1-codex-mini",
+          "display_name": "azure/gpt-5.1-codex-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "azure/gpt-5.2",
+          "display_name": "azure/gpt-5.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.2-chat",
+          "display_name": "azure/gpt-5.2-chat",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.2-codex",
+          "display_name": "azure/gpt-5.2-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "azure/gpt-5.3-chat",
+          "display_name": "azure/gpt-5.3-chat",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.3-codex",
+          "display_name": "azure/gpt-5.3-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "azure/gpt-5.4",
+          "display_name": "azure/gpt-5.4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.4-mini",
+          "display_name": "azure/gpt-5.4-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.4-nano",
+          "display_name": "azure/gpt-5.4-nano",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.4-pro",
+          "display_name": "azure/gpt-5.4-pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/gpt-5.5",
+          "display_name": "azure/gpt-5.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/grok-4-1-fast-non-reasoning",
+          "display_name": "azure/grok-4-1-fast-non-reasoning",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok"
+          }
+        },
+        {
+          "id": "azure/grok-4-1-fast-reasoning",
+          "display_name": "azure/grok-4-1-fast-reasoning",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok"
+          }
+        },
+        {
+          "id": "azure/grok-4-20-non-reasoning",
+          "display_name": "azure/grok-4-20-non-reasoning",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok"
+          }
+        },
+        {
+          "id": "azure/grok-4-20-reasoning",
+          "display_name": "azure/grok-4-20-reasoning",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok"
+          }
+        },
+        {
+          "id": "azure/grok-4-fast-reasoning",
+          "display_name": "azure/grok-4-fast-reasoning",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "grok"
+          }
+        },
+        {
+          "id": "azure/kimi-k2-thinking",
+          "display_name": "azure/kimi-k2-thinking",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "kimi"
+          }
+        },
+        {
+          "id": "azure/kimi-k2.5",
+          "display_name": "azure/kimi-k2.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "kimi"
+          }
+        },
+        {
+          "id": "azure/kimi-k2.6",
+          "display_name": "azure/kimi-k2.6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "kimi"
+          }
+        },
+        {
+          "id": "azure/llama-3.2-11b-vision-instruct",
+          "display_name": "azure/llama-3.2-11b-vision-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/llama-3.2-90b-vision-instruct",
+          "display_name": "azure/llama-3.2-90b-vision-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/llama-3.3-70b-instruct",
+          "display_name": "azure/llama-3.3-70b-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/llama-4-maverick-17b-128e-instruct-fp8",
+          "display_name": "azure/llama-4-maverick-17b-128e-instruct-fp8",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/llama-4-scout-17b-16e-instruct",
+          "display_name": "azure/llama-4-scout-17b-16e-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/mai-ds-r1",
+          "display_name": "azure/mai-ds-r1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/meta-llama-3-70b-instruct",
+          "display_name": "azure/meta-llama-3-70b-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/meta-llama-3-8b-instruct",
+          "display_name": "azure/meta-llama-3-8b-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/meta-llama-3.1-405b-instruct",
+          "display_name": "azure/meta-llama-3.1-405b-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/meta-llama-3.1-70b-instruct",
+          "display_name": "azure/meta-llama-3.1-70b-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/meta-llama-3.1-8b-instruct",
+          "display_name": "azure/meta-llama-3.1-8b-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "llama"
+          }
+        },
+        {
+          "id": "azure/ministral-3b",
+          "display_name": "azure/ministral-3b",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "mistral"
+          }
+        },
+        {
+          "id": "azure/mistral-large-2411",
+          "display_name": "azure/mistral-large-2411",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "mistral"
+          }
+        },
+        {
+          "id": "azure/mistral-medium-2505",
+          "display_name": "azure/mistral-medium-2505",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "mistral"
+          }
+        },
+        {
+          "id": "azure/mistral-nemo",
+          "display_name": "azure/mistral-nemo",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "mistral"
+          }
+        },
+        {
+          "id": "azure/mistral-small-2503",
+          "display_name": "azure/mistral-small-2503",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "mistral"
+          }
+        },
+        {
+          "id": "azure/model-router",
+          "display_name": "azure/model-router",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/o1",
+          "display_name": "azure/o1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/o1-mini",
+          "display_name": "azure/o1-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/o1-preview",
+          "display_name": "azure/o1-preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/o3",
+          "display_name": "azure/o3",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/o3-mini",
+          "display_name": "azure/o3-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/o4-mini",
+          "display_name": "azure/o4-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "azure/phi-3-medium-128k-instruct",
+          "display_name": "azure/phi-3-medium-128k-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-3-medium-4k-instruct",
+          "display_name": "azure/phi-3-medium-4k-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-3-mini-128k-instruct",
+          "display_name": "azure/phi-3-mini-128k-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-3-mini-4k-instruct",
+          "display_name": "azure/phi-3-mini-4k-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-3-small-128k-instruct",
+          "display_name": "azure/phi-3-small-128k-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-3-small-8k-instruct",
+          "display_name": "azure/phi-3-small-8k-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-3.5-mini-instruct",
+          "display_name": "azure/phi-3.5-mini-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-3.5-moe-instruct",
+          "display_name": "azure/phi-3.5-moe-instruct",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-4",
+          "display_name": "azure/phi-4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-4-mini",
+          "display_name": "azure/phi-4-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-4-mini-reasoning",
+          "display_name": "azure/phi-4-mini-reasoning",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-4-multimodal",
+          "display_name": "azure/phi-4-multimodal",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-4-reasoning",
+          "display_name": "azure/phi-4-reasoning",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/phi-4-reasoning-plus",
+          "display_name": "azure/phi-4-reasoning-plus",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/text-embedding-3-large",
+          "display_name": "azure/text-embedding-3-large",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/text-embedding-3-small",
+          "display_name": "azure/text-embedding-3-small",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "azure/text-embedding-ada-002",
+          "display_name": "azure/text-embedding-ada-002",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "azure"
+          }
+        },
+        {
+          "id": "github-copilot/claude-haiku-4.5",
+          "display_name": "github-copilot/claude-haiku-4.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-opus-4.5",
+          "display_name": "github-copilot/claude-opus-4.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-opus-4.6",
+          "display_name": "github-copilot/claude-opus-4.6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-opus-4.6-fast",
+          "display_name": "github-copilot/claude-opus-4.6-fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-opus-4.7",
+          "display_name": "github-copilot/claude-opus-4.7",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-opus-4.7-fast",
+          "display_name": "github-copilot/claude-opus-4.7-fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-opus-4.8",
+          "display_name": "github-copilot/claude-opus-4.8",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-opus-4.8-fast",
+          "display_name": "github-copilot/claude-opus-4.8-fast",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-sonnet-4",
+          "display_name": "github-copilot/claude-sonnet-4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-sonnet-4.5",
+          "display_name": "github-copilot/claude-sonnet-4.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/claude-sonnet-4.6",
+          "display_name": "github-copilot/claude-sonnet-4.6",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "claude"
+          }
+        },
+        {
+          "id": "github-copilot/gemini-2.5-pro",
+          "display_name": "github-copilot/gemini-2.5-pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "github-copilot/gemini-3-flash-preview",
+          "display_name": "github-copilot/gemini-3-flash-preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "github-copilot/gemini-3.1-pro-preview",
+          "display_name": "github-copilot/gemini-3.1-pro-preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "github-copilot/gemini-3.5-flash",
+          "display_name": "github-copilot/gemini-3.5-flash",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-4.1",
+          "display_name": "github-copilot/gpt-4.1",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5-mini",
+          "display_name": "github-copilot/gpt-5-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5.2",
+          "display_name": "github-copilot/gpt-5.2",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5.2-codex",
+          "display_name": "github-copilot/gpt-5.2-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5.3-codex",
+          "display_name": "github-copilot/gpt-5.3-codex",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt-codex"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5.4",
+          "display_name": "github-copilot/gpt-5.4",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5.4-mini",
+          "display_name": "github-copilot/gpt-5.4-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5.4-nano",
+          "display_name": "github-copilot/gpt-5.4-nano",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "github-copilot/gpt-5.5",
+          "display_name": "github-copilot/gpt-5.5",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gpt"
+          }
+        },
+        {
+          "id": "github-copilot/raptor-mini",
+          "display_name": "github-copilot/raptor-mini",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "github-copilot"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-flash",
+          "display_name": "google/gemini-2.5-flash",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-flash-image",
+          "display_name": "google/gemini-2.5-flash-image",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "display_name": "google/gemini-2.5-flash-lite",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-flash-preview-tts",
+          "display_name": "google/gemini-2.5-flash-preview-tts",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-flash-tts",
+          "display_name": "google/gemini-2.5-flash-tts",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-pro",
+          "display_name": "google/gemini-2.5-pro",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-pro-preview-tts",
+          "display_name": "google/gemini-2.5-pro-preview-tts",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-3-flash-preview",
+          "display_name": "google/gemini-3-flash-preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-3-pro-image-preview",
+          "display_name": "google/gemini-3-pro-image-preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-flash-image-preview",
+          "display_name": "google/gemini-3.1-flash-image-preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-flash-lite",
+          "display_name": "google/gemini-3.1-flash-lite",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-pro-preview",
+          "display_name": "google/gemini-3.1-pro-preview",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-pro-preview-customtools",
+          "display_name": "google/gemini-3.1-pro-preview-customtools",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-3.5-flash",
+          "display_name": "google/gemini-3.5-flash",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-embedding-001",
+          "display_name": "google/gemini-embedding-001",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-flash-latest",
+          "display_name": "google/gemini-flash-latest",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemini-flash-lite-latest",
+          "display_name": "google/gemini-flash-lite-latest",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemma-4-26b-a4b-it",
+          "display_name": "google/gemma-4-26b-a4b-it",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        },
+        {
+          "id": "google/gemma-4-31b-it",
+          "display_name": "google/gemma-4-31b-it",
+          "source": "config",
+          "confidence": "observed",
+          "metadata": {
+            "family": "gemini"
+          }
+        }
+      ],
+      "model_arg": "--model"
     },
     "copilot-cli": {
       "default_model": "gpt-5.5",
@@ -463,6 +3499,7 @@
       "catalog_completeness": "droid_exec_help_observed",
       "quirks": [
         "interactive_model_pin_uses_process_local_settings",
+        "reasoning_effort_uses_cli_arg",
         "no_native_usage_probe_confirmed"
       ],
       "models": [
@@ -576,7 +3613,8 @@
                 "low",
                 "medium",
                 "high",
-                "xhigh"
+                "xhigh",
+                "max"
               ],
               "default": "high"
             }
@@ -632,10 +3670,9 @@
                 "off",
                 "low",
                 "medium",
-                "high",
-                "max"
+                "high"
               ],
-              "default": "high"
+              "default": "off"
             }
           }
         },
@@ -670,10 +3707,9 @@
                 "off",
                 "low",
                 "medium",
-                "high",
-                "max"
+                "high"
               ],
-              "default": "high"
+              "default": "off"
             }
           }
         },
@@ -689,8 +3725,7 @@
                 "off",
                 "low",
                 "medium",
-                "high",
-                "max"
+                "high"
               ],
               "default": "off"
             }
@@ -849,6 +3884,7 @@
             "family": "gpt",
             "reasoning": {
               "supported": [
+                "off",
                 "low",
                 "medium",
                 "high",
@@ -938,10 +3974,20 @@
           "confidence": "observed",
           "metadata": {
             "family": "gpt-codex",
-            "deprecated": true
+            "deprecated": true,
+            "reasoning": {
+              "supported": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium"
+            }
           }
         }
-      ]
+      ],
+      "reasoning_effort_arg": "--reasoning-effort"
     },
     "devin-cli": {
       "default_model": "codex",

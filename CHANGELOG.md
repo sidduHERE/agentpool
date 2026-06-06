@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.11 - 2026-06-05
+
+- Refresh provider model catalogs from current Claude Code, Codex, Cursor,
+  Droid, and OpenCode surfaces, including Claude Opus 4.8, Claude Code 1M
+  suffixes, and Cursor's explicit 1M/reasoning variants.
+- Forward provider reasoning controls for Claude Code (`--effort`) and Droid
+  (`--reasoning-effort`) while keeping Codex reasoning/service-tier overrides
+  process-local.
+- Refresh stale installed catalog metadata from the embedded catalog without
+  overriding user-selected default or smoke models.
+
 ## 0.1.10 - 2026-06-03
 
 - Add an AI-agent start section to root help pointing agents at bundled skill

@@ -1281,6 +1281,10 @@ def models_command(
         console.print(f"default: {row['default_model'] or ''}")
         console.print(f"smoke: {row['smoke_model'] or ''}")
         console.print(f"selection: {row['model_selection'] or ''}")
+        if row.get("reasoning_effort_arg"):
+            console.print(f"reasoning: {row['reasoning_effort_arg']}")
+        elif row.get("reasoning_effort_config_key"):
+            console.print(f"reasoning config: {row['reasoning_effort_config_key']}")
         console.print(f"catalog: {row['catalog_completeness'] or ''}")
         if row["quirks"]:
             console.print("quirks:")
@@ -1648,7 +1652,7 @@ def spawn(
     ] = None,
     service_tier: Annotated[
         str | None,
-        typer.Option("--service-tier", help="Provider service tier override when supported, for example fast."),
+        typer.Option("--service-tier", help="Provider service tier override when supported, for example priority."),
     ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:

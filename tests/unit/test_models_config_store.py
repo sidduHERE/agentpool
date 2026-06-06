@@ -219,10 +219,13 @@ def test_default_model_catalog_applies_provider_defaults() -> None:
     assert config.providers["codex-cli"].metadata["default_initial_prompt_mode"] == "arg"
     assert config.providers["codex-cli"].metadata["reasoning_effort_config_key"] == "model_reasoning_effort"
     assert config.providers["codex-cli"].metadata["service_tier_config_key"] == "service_tier"
+    assert config.providers["claude-code"].metadata["reasoning_effort_arg"] == "--effort"
     assert config.providers["cursor-cli"].metadata["default_model"] == "composer-2.5"
     assert config.providers["cursor-cli"].metadata["default_initial_prompt_mode"] == "arg"
     assert config.providers["cursor-cli"].metadata["read_only_mode_arg"] == "ask"
     assert config.providers["droid-cli"].metadata["model_selection"] == "runtime_settings"
+    assert config.providers["droid-cli"].metadata["reasoning_effort_arg"] == "--reasoning-effort"
+    assert config.providers["opencode"].metadata["model_arg"] == "--model"
     assert "factory-droid" not in config.providers
     assert {model["id"] for model in config.providers["droid-cli"].models} >= {"glm-5.1", "gpt-5.5"}
 
@@ -296,7 +299,7 @@ providers:
         metadata:
           reasoning:
             supported: [low, medium, high, xhigh]
-            default: medium
+            default: low
 """,
         encoding="utf-8",
     )
@@ -305,7 +308,35 @@ providers:
     codex = config.providers["codex-cli"]
     gpt54 = next(model for model in codex.models if model["id"] == "gpt-5.4")
 
-    assert gpt54["metadata"]["reasoning"]["default"] == "high"
+    assert gpt54["metadata"]["reasoning"]["default"] == "medium"
+
+
+def test_load_config_refreshes_stale_embedded_provider_metadata(tmp_path: Path) -> None:
+    config_path = tmp_path / "agentpool.yaml"
+    config_path.write_text(
+        """
+version: 1
+providers:
+  claude-code:
+    metadata:
+      default_model: opus
+      smoke_model: opus
+      model_arg: --old-model
+      catalog_completeness: old_catalog
+      quirks: [old_quirk]
+""",
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+    metadata = config.providers["claude-code"].metadata
+
+    assert metadata["default_model"] == "opus"
+    assert metadata["smoke_model"] == "opus"
+    assert metadata["model_arg"] == "--model"
+    assert metadata["reasoning_effort_arg"] == "--effort"
+    assert metadata["catalog_completeness"] == "claude_code_docs_and_local_help"
+    assert "1m_context_suffix_requires_plan_or_usage_credits" in metadata["quirks"]
 
 
 def test_user_model_catalog_path_overrides_defaults(tmp_path: Path) -> None:
@@ -475,7 +506,7 @@ def test_spawn_codex_honors_reasoning_and_service_tier(tmp_path: Path) -> None:
             repo_path=str(tmp_path),
             model="gpt-5.4",
             reasoning_effort="high",
-            service_tier="fast",
+            service_tier="priority",
             initial_prompt_mode="arg",
         )
     )
@@ -488,7 +519,7 @@ def test_spawn_codex_honors_reasoning_and_service_tier(tmp_path: Path) -> None:
         "-c",
         'model_reasoning_effort="high"',
         "-c",
-        'service_tier="fast"',
+        'service_tier="priority"',
     ]
 
 
@@ -515,7 +546,35 @@ def test_spawn_codex_uses_catalog_reasoning_for_explicit_model(tmp_path: Path) -
         "--model",
         "gpt-5.4",
         "-c",
-        'model_reasoning_effort="high"',
+        'model_reasoning_effort="medium"',
+    ]
+    assert result["session"]["metadata"]["reasoning_effort"] == "medium"
+
+
+def test_spawn_claude_uses_catalog_reasoning_for_explicit_model(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["claude-code"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(
+            provider_id="claude-code",
+            task="inspect",
+            repo_path=str(tmp_path),
+            model="claude-opus-4-8",
+            initial_prompt_mode="arg",
+        )
+    )
+
+    assert runtime.command is not None
+    assert runtime.command[:-1] == [
+        sys.executable,
+        "--model",
+        "claude-opus-4-8",
+        "--effort",
+        "high",
     ]
     assert result["session"]["metadata"]["reasoning_effort"] == "high"
 
@@ -1052,6 +1111,41 @@ def test_model_arg_providers_pin_requested_model(tmp_path: Path) -> None:
     assert command[-2:] == ["--model", "gpt-5.5"]
 
 
+def test_claude_reasoning_effort_is_forwarded_as_effort_arg(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.providers["claude-code"].command = ["claude"]
+    adapter = build_registry(config).get("claude-code")
+    command = adapter.build_launch_command(
+        SpawnWorkerRequest(
+            provider_id="claude-code",
+            task="inspect",
+            repo_path=str(tmp_path),
+            model="claude-opus-4-8",
+            reasoning_effort="xhigh",
+        ),
+        tmp_path,
+    )
+
+    assert command == ["claude", "--model", "claude-opus-4-8", "--effort", "xhigh"]
+
+
+def test_opencode_model_arg_is_forwarded(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.providers["opencode"].command = ["opencode"]
+    adapter = build_registry(config).get("opencode")
+    command = adapter.build_launch_command(
+        SpawnWorkerRequest(
+            provider_id="opencode",
+            task="inspect",
+            repo_path=str(tmp_path),
+            model="opencode/claude-opus-4-8",
+        ),
+        tmp_path,
+    )
+
+    assert command == ["opencode", "--model", "opencode/claude-opus-4-8"]
+
+
 def test_copilot_model_args_are_forwarded_through_gh_separator(tmp_path: Path) -> None:
     config = load_config(Path("__missing_agentpool_config__.yaml"))
     adapter = build_registry(config).get("copilot-cli")
@@ -1081,11 +1175,18 @@ def test_droid_model_is_pinned_with_process_local_settings(tmp_path: Path) -> No
     config.providers["droid-cli"].command = ["droid"]
     adapter = build_registry(config).get("droid-cli")
     command = adapter.build_launch_command(
-        SpawnWorkerRequest(provider_id="droid-cli", task="inspect", repo_path=str(tmp_path), model="glm-5.1"),
+        SpawnWorkerRequest(
+            provider_id="droid-cli",
+            task="inspect",
+            repo_path=str(tmp_path),
+            model="glm-5.1",
+            reasoning_effort="off",
+        ),
         tmp_path,
     )
 
     assert "--model" not in command
+    assert command[1:3] == ["--reasoning-effort", "off"]
     assert command[-2] == "--settings"
     settings_path = Path(command[-1])
     assert settings_path.read_text(encoding="utf-8")
@@ -1114,11 +1215,22 @@ def _catalog_summary(catalog: dict[str, object]) -> dict[str, object]:
         "critical_reasoning": {},
     }
     critical_models = {
-        "codex-cli": ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.3-codex-spark"],
-        "cursor-cli": ["composer-2.5", "composer-2.5-fast", "gpt-5.4-high"],
+        "claude-code": ["claude-opus-4-8", "claude-opus-4-8[1m]", "claude-sonnet-4-6[1m]"],
+        "codex-cli": ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex-spark"],
+        "cursor-cli": ["composer-2.5", "composer-2.5-fast", "claude-opus-4-8-max", "gpt-5.4-high"],
         "droid-cli": ["glm-5.1", "kimi-k2.6", "gpt-5.5", "gemini-3-flash-preview"],
+        "opencode": ["opencode/claude-opus-4-8", "opencode/gpt-5.5"],
     }
-    critical_reasoning = ["codex-cli:gpt-5.5", "codex-cli:gpt-5.4", "droid-cli:glm-5.1"]
+    critical_reasoning = [
+        "claude-code:claude-opus-4-8",
+        "claude-code:claude-opus-4-7",
+        "claude-code:claude-sonnet-4-6",
+        "codex-cli:gpt-5.5",
+        "codex-cli:gpt-5.4",
+        "codex-cli:gpt-5.3-codex-spark",
+        "droid-cli:glm-5.1",
+        "droid-cli:claude-opus-4-7",
+    ]
     for provider_id in provider_ids:
         entry = providers[provider_id]
         assert isinstance(entry, dict)

@@ -45,6 +45,7 @@ agentpool models --provider droid-cli
 agentpool spawn \
   --provider droid-cli \
   --model glm-5.1 \
+  --reasoning-effort high \
   --repo . \
   --task "Inspect this repo read-only and summarize the main entry points." \
   --isolation read_only
@@ -52,4 +53,5 @@ agentpool spawn \
 
 AgentPool pins Droid models through a process-local `--settings` file under
 `~/.agentpool/runtime-settings/` so it does not mutate your global Factory
-settings.
+settings. Droid reasoning effort is forwarded with `--reasoning-effort` when
+you provide it.

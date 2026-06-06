@@ -126,9 +126,10 @@ agentpool terminate <session-id> --json
 
 `spawn` defaults `--initial-prompt-mode` to `provider_default`. For Codex CLI
 this resolves to `arg`, which passes the first task as the Codex prompt argument
-instead of relying on a paste-and-submit startup cycle. Codex workers also
-accept process-local overrides such as `--reasoning-effort high` and
-`--service-tier fast`; AgentPool does not edit your Codex config.
+instead of relying on a paste-and-submit startup cycle. Providers that expose
+reasoning controls also accept process-local overrides such as
+`--reasoning-effort high`; Codex also accepts `--service-tier priority`.
+AgentPool does not edit your provider config.
 
 For AgentPool-created edit isolation, choose worktrees explicitly:
 
@@ -182,13 +183,13 @@ shell script must avoid provider TUI fallback probes.
 
 | Provider id | Command | Usage status in v0.1 | Model pinning |
 | --- | --- | --- | --- |
-| `codex-cli` | `codex` | native local app-server rate-limit probe; CodexBar optional | `--model` |
+| `codex-cli` | `codex` | native local app-server rate-limit probe; CodexBar optional | `--model` + config-scoped reasoning/service tier |
 | `cursor-cli` | `agent` or `cursor-agent` | optional CodexBar Cursor usage; native CLI usage is interactive `/usage` only | `--model` + read-only `--mode ask` |
-| `claude-code` | `claude` | temporary `/usage` probe; ccusage telemetry optional | `--model` |
+| `claude-code` | `claude` | temporary `/usage` probe; ccusage telemetry optional | `--model` + `--effort` |
 | `devin-cli` | `devin` | Devin/Windsurf plan-status API from existing CLI auth, with `/usage` fallback | `--model` |
 | `copilot-cli` | `gh copilot` | GitHub Copilot usage API from env or `gh auth token` | forwarded `--model` |
-| `droid-cli` | `droid` | unknown unless surfaced by future safe probe | process-local settings file |
-| `opencode` | `opencode` | configured adapter; usage unknown in this alpha | catalog-driven |
+| `droid-cli` | `droid` | unknown unless surfaced by future safe probe | process-local settings file + `--reasoning-effort` |
+| `opencode` | `opencode` | configured adapter; usage unknown in this alpha | `--model` with provider/model ids |
 
 Compatibility note: the PRD calls Factory's coding product `factory-droid`, but
 AgentPool exposes it as `droid-cli` because the installed command is `droid`.

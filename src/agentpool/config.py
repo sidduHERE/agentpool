@@ -30,6 +30,19 @@ FAKE_PROVIDER_SCRIPTS = {
     "fake-limit": "fake_limit_agent.py",
     "fake-patch": "fake_patch_agent.py",
 }
+CATALOG_METADATA_REFRESH_KEYS = {
+    "catalog_completeness",
+    "default_initial_prompt_mode",
+    "forward_separator",
+    "model_arg",
+    "model_selection",
+    "quirks",
+    "read_only_mode_arg",
+    "reasoning_effort_arg",
+    "reasoning_effort_config_key",
+    "service_tier_config_key",
+    "submit_keys",
+}
 
 
 class StorageConfig(BaseModel):
@@ -303,21 +316,28 @@ def load_config(path: Path | None = None) -> AgentPoolConfig:
     ).model_dump(mode="json")
     merged = deep_merge(base, raw)
     merged_config = AgentPoolConfig.model_validate(merged)
-    _refresh_provider_models_from_catalog(merged_config.providers, load_model_catalog(model_catalog_paths))
+    _refresh_provider_catalog_fields(merged_config.providers, load_model_catalog(model_catalog_paths))
     merged = merged_config.model_dump(mode="json")
     _repair_packaged_fake_provider_paths(merged)
     _drop_deprecated_providers(merged)
     return AgentPoolConfig.model_validate(merged)
 
 
-def _refresh_provider_models_from_catalog(
+def _refresh_provider_catalog_fields(
     providers: dict[str, ProviderConfig],
     catalog: dict[str, Any],
 ) -> None:
     for provider_id, entry in (catalog.get("providers") or {}).items():
-        if provider_id not in providers or not isinstance(entry, dict) or "models" not in entry:
+        if provider_id not in providers or not isinstance(entry, dict):
             continue
-        providers[provider_id].models = list(entry["models"] or [])
+        provider = providers[provider_id]
+        if "models" in entry:
+            provider.models = list(entry["models"] or [])
+        for key in CATALOG_METADATA_REFRESH_KEYS:
+            if key in entry:
+                provider.metadata[key] = entry[key]
+            else:
+                provider.metadata.pop(key, None)
 
 
 def validate_config(config: AgentPoolConfig) -> dict[str, Any]:

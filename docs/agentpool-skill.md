@@ -96,7 +96,9 @@ that directory is acceptable. Then observe again.
 When spawning Codex workers, leave `initial_prompt_mode` unset unless you have a
 reason to force it. The provider default uses the Codex CLI prompt argument path.
 Pass `reasoning_effort="high"` or another explicit value when the task needs a
-different Codex reasoning setting from the catalog default.
+different provider reasoning setting from the catalog default. AgentPool
+forwards that to Codex config overrides, Claude Code `--effort`, or Droid
+`--reasoning-effort` depending on the selected provider.
 
 ## Safety Boundaries
 
