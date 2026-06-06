@@ -72,6 +72,20 @@ def get_usage_summary(
     )
 
 
+def get_capacity_summary(
+    manager: SessionManager,
+    provider_id: str | None = None,
+    refresh: bool = False,
+    backend: str = "combined",
+    timeout_seconds: float = MCP_USAGE_REFRESH_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    return get_usage_summary(manager, provider_id, refresh, backend, timeout_seconds)
+
+
+def get_cached_usage_snapshot(manager: SessionManager, provider_id: str | None = None) -> dict[str, Any]:
+    return manager.cached_usage_snapshot(provider_id)
+
+
 def get_provider_models(manager: SessionManager, provider_id: str | None = None) -> dict[str, Any]:
     return manager.provider_models(provider_id)
 

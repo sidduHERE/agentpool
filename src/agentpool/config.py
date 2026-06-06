@@ -64,9 +64,31 @@ class TmuxConfig(BaseModel):
     idle_seconds: int = 30
 
 
+class TerminalControlArtifactsConfig(BaseModel):
+    save_text: bool = False
+    save_json: bool = True
+    save_svg_on_failure: bool = True
+    save_png_on_failure: bool = False
+    record: bool = False
+
+
+class TerminalControlConfig(BaseModel):
+    enabled: bool = False
+    binary: str = "termctrl"
+    session_prefix: str = "agentpool"
+    capture_lines: int = 300
+    cols: int = 120
+    rows: int = 36
+    settle_ms: int = 100
+    deadline_ms: int = 5000
+    host: str | None = None
+    artifacts: TerminalControlArtifactsConfig = Field(default_factory=TerminalControlArtifactsConfig)
+
+
 class RuntimeConfig(BaseModel):
     default: str = "tmux"
     tmux: TmuxConfig = Field(default_factory=TmuxConfig)
+    terminal_control: TerminalControlConfig = Field(default_factory=TerminalControlConfig)
 
 
 class PolicyConfig(BaseModel):

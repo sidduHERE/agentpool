@@ -302,7 +302,10 @@
           ]
         }
       ],
-      "reasoning_effort_arg": "--effort"
+      "reasoning_effort_arg": "--effort",
+      "submit_keys": [
+        "Enter"
+      ]
     },
     "codex-cli": {
       "default_model": "gpt-5.5",

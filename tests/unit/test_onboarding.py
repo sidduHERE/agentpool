@@ -392,6 +392,7 @@ def test_deep_doctor_basic_checks(tmp_path: Path) -> None:
 
     assert {check["name"] for check in result["checks"]} == {
         "tmux_roundtrip",
+        "terminal_control",
         "sqlite",
         "artifact_root",
         "usage_cache",

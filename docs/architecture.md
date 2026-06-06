@@ -15,7 +15,8 @@ Core modules:
 - `models.py`: Pydantic response and persistence models.
 - `config.py`: `~/.agentpool/config.yaml` loader and defaults.
 - `providers/`: conservative CLI detection and launch templates.
-- `runtimes/tmux.py`: required v0.1 runtime.
+- `runtimes/tmux.py`: default worker runtime.
+- `runtimes/terminal_control.py`: optional named-session Terminal Control runtime.
 - `store.py`: SQLite sessions, events, usage snapshots, artifacts, and leases.
 - `session_manager.py`: policy enforcement and worker lifecycle orchestration.
 - `mcp_server.py`: MCP tools and resources.

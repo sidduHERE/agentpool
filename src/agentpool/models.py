@@ -46,6 +46,7 @@ def normalize_confidence(value: Any) -> Any:
 
 class RuntimeKind(StrEnum):
     TMUX = "tmux"
+    TERMINAL_CONTROL = "terminal-control"
     PTY = "pty"
     ACP = "acp"
 
@@ -205,7 +206,7 @@ class SpawnWorkerRequest(BaseModel):
     role: Literal["explorer", "reviewer", "implementer", "tester", "custom"] = "explorer"
     model: str | None = None
     account: str | None = None
-    runtime: RuntimeKind = RuntimeKind.TMUX
+    runtime: RuntimeKind | None = None
     isolation: Literal["read_only", "worktree", "shared"] = "read_only"
     allowed_files: list[str] = Field(default_factory=list)
     max_runtime_seconds: int | None = None
@@ -227,6 +228,18 @@ class SpawnWorkerRequest(BaseModel):
                 raise ValueError("task contains placeholder text; pass the actual delegated task")
         return task
 
+    @field_validator("runtime", mode="before")
+    @classmethod
+    def normalize_runtime(cls, value: Any) -> Any:
+        if value in {None, ""}:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip().lower().replace("_", "-")
+            if normalized in {"termctrl", "terminal"}:
+                return RuntimeKind.TERMINAL_CONTROL
+            return normalized
+        return value
+
 
 class TmuxSessionRef(BaseModel):
     session_name: str
@@ -236,6 +249,14 @@ class TmuxSessionRef(BaseModel):
     @property
     def target(self) -> str:
         return f"{self.session_name}:{self.window}.{self.pane}"
+
+
+class TerminalControlSessionRef(BaseModel):
+    session_name: str
+
+    @property
+    def target(self) -> str:
+        return self.session_name
 
 
 class AgentSession(BaseModel):

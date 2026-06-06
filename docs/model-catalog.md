@@ -23,7 +23,7 @@ Each provider entry can describe:
 - `model_selection`: non-flag pinning mode, such as Droid runtime settings.
 - `reasoning_effort_arg`: the CLI flag used by providers with native effort
   selection, such as Claude Code `--effort` or Droid `--reasoning-effort`.
-- `submit_keys`: tmux keys needed for interactive submit quirks.
+- `submit_keys`: runtime keys needed for interactive submit quirks.
 - `quirks`: operator-facing notes for harness behavior.
 
 ## Override

@@ -22,7 +22,9 @@ from agentpool.store import Store
 DEFAULT_TOOLS = {
     "get_inventory",
     "get_usage_summary",
+    "get_capacity_summary",
     "get_usage_snapshot",
+    "get_cached_usage_snapshot",
     "get_provider_models",
     "get_delegation_preferences",
     "spawn_worker",
@@ -34,7 +36,7 @@ DEFAULT_TOOLS = {
     "read_worker_transcript",
     "terminate_worker",
 }
-REMOVED_ALIASES = {"send_message", "get_capacity_summary", "get_cached_usage_snapshot"}
+REMOVED_ALIASES = {"send_message"}
 
 
 def test_default_mcp_surface_is_lean(tmp_path: Path) -> None:
@@ -54,6 +56,12 @@ def test_default_mcp_surface_is_lean(tmp_path: Path) -> None:
         assert tool_names == DEFAULT_TOOLS
         assert not tool_names & REMOVED_ALIASES
         assert all("outputSchema" not in tool for tool in payload)
+        for tool in payload:
+            assert tool.get("description")
+        by_name = {tool["name"]: tool for tool in payload}
+        assert by_name["get_inventory"]["annotations"]["readOnlyHint"] is True
+        assert by_name["spawn_worker"]["annotations"]["readOnlyHint"] is False
+        assert by_name["terminate_worker"]["annotations"]["destructiveHint"] is True
         assert concrete_resources | template_resources == DEFAULT_RESOURCES
         assert prompt_names == DEFAULT_PROMPTS
         assert len(json.dumps(payload, separators=(",", ":"))) < DEFAULT_TOOL_LIST_BUDGET_BYTES

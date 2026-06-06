@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from pathlib import Path
@@ -200,13 +201,20 @@ Task:
     def _binary_path(self, config: ProviderConfig) -> str | None:
         if config.command:
             first = config.command[0]
-            return first if Path(first).exists() else shutil.which(first)
+            expanded = Path(os.path.expandvars(first)).expanduser()
+            return str(expanded) if expanded.exists() else shutil.which(first)
         for candidate in config.binary_candidates:
-            if Path(candidate).exists():
-                return str(Path(candidate))
+            expanded = Path(os.path.expandvars(candidate)).expanduser()
+            if expanded.exists():
+                return str(expanded)
             found = shutil.which(candidate)
             if found:
                 return found
+            if "/" not in candidate:
+                for directory in _common_binary_dirs():
+                    path = directory / candidate
+                    if path.exists():
+                        return str(path)
         return None
 
     def _version(self, binary_path: str | None) -> str | None:
@@ -216,6 +224,17 @@ Task:
         if proc.returncode == 0:
             return (proc.stdout or proc.stderr).strip().splitlines()[0][:200]
         return None
+
+
+def _common_binary_dirs() -> list[Path]:
+    return [
+        Path("~/.local/bin").expanduser(),
+        Path("~/bin").expanduser(),
+        Path("/opt/homebrew/bin"),
+        Path("/usr/local/bin"),
+        Path("/usr/bin"),
+        Path("/bin"),
+    ]
 
 
 class FakeProviderAdapter(CommandProviderAdapter):

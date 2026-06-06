@@ -33,16 +33,20 @@ from agentpool.models import (
     RuntimeKind,
     SessionState,
     SpawnWorkerRequest,
+    TerminalControlSessionRef,
     ToolError,
+    TmuxSessionRef,
 )
 from agentpool.policy import active_state, enforce_raw_keys_policy, enforce_spawn_policy
 from agentpool.preferences import preferences_payload, preferences_reference
 from agentpool.providers.registry import ProviderRegistry, build_registry
 from agentpool.redaction import redact_text
+from agentpool.runtimes.base import RuntimeAdapter, RuntimeRef
+from agentpool.runtimes.terminal_control import TerminalControlRuntime
 from agentpool.runtimes.tmux import TmuxRuntime
 from agentpool.store import Store
 from agentpool.usage.summary import build_usage_summary
-from agentpool.utils import append_jsonl, new_session_id, utc_now_iso, write_json
+from agentpool.utils import append_jsonl, new_session_id, sha256_file, utc_now_iso, write_json
 
 DEFAULT_SESSION_LIMIT = 50
 MAX_SESSION_LIMIT = 500
@@ -83,7 +87,8 @@ class SessionManager:
         config: AgentPoolConfig | None = None,
         store: Store | None = None,
         registry: ProviderRegistry | None = None,
-        runtime: TmuxRuntime | None = None,
+        runtime: RuntimeAdapter | None = None,
+        runtimes: dict[RuntimeKind, RuntimeAdapter] | None = None,
         coordinator_id: str | None = None,
         scope_sessions_by_coordinator: bool = False,
     ):
@@ -92,14 +97,31 @@ class SessionManager:
             self.config.providers = default_provider_config()
         self.store = store or Store(self.config.storage.db)
         self.registry = registry or build_registry(self.config)
-        self.runtime = runtime or TmuxRuntime()
+        self.runtimes = dict(runtimes or {})
+        self.runtime = runtime or self.runtimes.get(RuntimeKind.TMUX) or TmuxRuntime()
+        self.runtimes[RuntimeKind.TMUX] = self.runtime
+        if (
+            self.config.runtime.terminal_control.enabled
+            or _coerce_runtime_kind(self.config.runtime.default) == RuntimeKind.TERMINAL_CONTROL
+        ):
+            self.runtimes.setdefault(
+                RuntimeKind.TERMINAL_CONTROL,
+                TerminalControlRuntime(self.config.runtime.terminal_control),
+            )
         self.coordinator_id = coordinator_id or f"coord_{uuid.uuid4().hex[:12]}"
         self.scope_sessions_by_coordinator = scope_sessions_by_coordinator
 
     def inventory(self, include_usage: bool = True) -> dict[str, Any]:
         self.reconcile_sessions()
+        runtimes = self._runtime_inventory()
+        providers = self.registry.descriptors(include_usage)
+        advertised = self._advertised_provider_runtimes(runtimes)
+        for provider in providers:
+            if provider.installed:
+                provider.runtimes = advertised
         return {
-            "providers": [p.model_dump(mode="json") for p in self.registry.descriptors(include_usage)],
+            "providers": [p.model_dump(mode="json") for p in providers],
+            "runtimes": runtimes,
             "preferences": preferences_reference(),
             "policy": self.config.policy.model_dump(mode="json"),
             "checked_at": utc_now_iso(),
@@ -258,7 +280,8 @@ class SessionManager:
             if blocked:
                 excluded.append({"provider_id": descriptor.id, "excluded_reasons": blocked})
             else:
-                reasons.extend(["installed", "supports tmux"])
+                runtime_names = ", ".join(runtime.value for runtime in self._advertised_provider_runtimes())
+                reasons.extend(["installed", f"supports {runtime_names}"])
                 reasons.append("usage available or unknown" if include_usage_unknown else f"usage {status_value}")
                 candidates.append({"provider_id": descriptor.id, "included_reasons": reasons})
         return {"candidates": candidates, "excluded": excluded}
@@ -266,8 +289,9 @@ class SessionManager:
     def spawn_worker(self, request: SpawnWorkerRequest) -> dict[str, Any]:
         self.reconcile_sessions()
         enforce_spawn_policy(self.config, request.provider_id, request.role, request.isolation)
-        if request.runtime != RuntimeKind.TMUX:
-            raise ToolError("POLICY_BLOCKED", "Only tmux runtime is supported in v0.1.", {"runtime": request.runtime})
+        runtime_kind = self._resolve_runtime_kind(request.runtime)
+        runtime_adapter = self._runtime_for(runtime_kind)
+        request = request.model_copy(update={"runtime": runtime_kind})
         active_sessions = [
             session
             for session in self.store.list_sessions()
@@ -329,7 +353,7 @@ class SessionManager:
             if worktree_path:
                 self._rollback_spawn_files(repo_path, worktree_path, request.provider_id, session_id, artifact_dir)
             raise
-        tmux_name = _tmux_name(self.config.runtime.tmux.session_prefix, request.provider_id, session_id)
+        runtime_name = _runtime_name(self._runtime_session_prefix(runtime_kind), request.provider_id, session_id)
         now = datetime.now(timezone.utc)
         metadata = dict(request.metadata)
         metadata["coordinator_id"] = self.coordinator_id
@@ -356,7 +380,7 @@ class SessionManager:
             task=request.task,
             repo_path=str(repo_path),
             worktree_path=worktree_path,
-            runtime=RuntimeKind.TMUX,
+            runtime=runtime_kind,
             state=SessionState.STARTING,
             created_at=now,
             updated_at=now,
@@ -372,19 +396,19 @@ class SessionManager:
             command = adapter.build_launch_command(request, workdir)
             if request.initial_prompt_mode == "arg":
                 command = [*command, prompt]
-            ref = self.runtime.spawn(command, workdir, {}, tmux_name)
+            ref = runtime_adapter.spawn(command, workdir, {"AGENTPOOL_ARTIFACT_DIR": str(artifact_dir)}, runtime_name)
         except Exception:
             self.store.update_session_state(session_id, SessionState.FAILED, ended_at=utc_now_iso())
             self._rollback_spawn_files(repo_path, worktree_path, request.provider_id, session_id, artifact_dir)
             raise
         try:
-            session.tmux = ref
+            self._set_runtime_ref(session, ref)
             session.state = SessionState.RUNNING if request.initial_prompt_mode == "arg" else SessionState.READY
             session.updated_at = datetime.now(timezone.utc)
             self.store.save_session(session)
         except Exception:
-            if self.runtime.exists(ref):
-                self.runtime.terminate(ref)
+            if runtime_adapter.exists(ref):
+                runtime_adapter.terminate(ref)
             self.store.update_session_state(session_id, SessionState.FAILED, ended_at=utc_now_iso())
             self._rollback_spawn_files(repo_path, worktree_path, request.provider_id, session_id, artifact_dir)
             raise
@@ -395,27 +419,39 @@ class SessionManager:
             session,
             "spawn",
             state=session.state.value,
-            metadata={"command": event_command, "initial_prompt_mode": request.initial_prompt_mode},
+            metadata={
+                "command": event_command,
+                "initial_prompt_mode": request.initial_prompt_mode,
+                "runtime": runtime_kind.value,
+            },
         )
         if request.initial_prompt_mode == "send_after_launch":
             time.sleep(0.3)
-            self.runtime.send_message(ref, prompt, submit=True)
+            self._settle_runtime_before_initial_send(runtime_adapter, ref)
+            submit_keys = self._send_provider_message(
+                runtime_adapter,
+                ref,
+                session.provider_id,
+                prompt,
+                submit=True,
+            )
             session.state = SessionState.RUNNING
             session.updated_at = datetime.now(timezone.utc)
             session.metadata["initial_prompt_sent"] = True
             self.store.save_session(session)
-            self._event(session, "send_initial_prompt", state=session.state.value)
+            self._event(
+                session,
+                "send_initial_prompt",
+                state=session.state.value,
+                metadata={"submit_keys": submit_keys},
+            )
         return {
             "session_id": session.id,
             "session": session.model_dump(mode="json"),
-            "attach_command": self.runtime.attach_command(ref),
+            "attach_command": runtime_adapter.attach_command(ref),
             "preferences": preferences_reference(),
             "live_control": {
-                "can_capture_screen": True,
-                "can_send_message": True,
-                "can_send_keys": self.config.policy.allow_raw_keys,
-                "can_interrupt": True,
-                "can_attach": True,
+                **self._runtime_live_control(runtime_adapter, ref),
                 "initial_prompt_mode": request.initial_prompt_mode,
             },
         }
@@ -433,8 +469,8 @@ class SessionManager:
         timed_out = self._enforce_deadline(session)
         if timed_out:
             return timed_out
-        if not session.tmux:
-            raise ToolError("TMUX_SESSION_NOT_FOUND", "Session has no tmux reference.", {"session_id": session_id})
+        ref = self._runtime_ref(session)
+        runtime_adapter = self._runtime_for(session.runtime)
         deadline = time.monotonic() + max(0, timeout_seconds)
         wanted = set(wait_for or [])
         previous_hash = session.metadata.get("last_screen_hash")
@@ -442,7 +478,7 @@ class SessionManager:
             timed_out = self._enforce_deadline(session)
             if timed_out:
                 return timed_out
-            screen = self.runtime.capture(session.tmux, max_lines or self.config.runtime.tmux.capture_lines)
+            screen = runtime_adapter.capture(ref, self._runtime_capture_lines(session.runtime, max_lines))
             clean = redact_text(screen)
             detection = detect_event(clean, previous_hash)
             current_hash = screen_hash(clean)
@@ -496,22 +532,15 @@ class SessionManager:
         session = self._require_session(session_id)
         self._enforce_deadline_or_raise(session)
         self._enforce_turn_limit(session)
-        if not session.tmux:
-            raise ToolError("TMUX_SESSION_NOT_FOUND", "Session has no tmux reference.", {"session_id": session_id})
-        submit_keys = None
-        sent_empty_submit = False
-        if submit and message == "":
-            submit_keys = ["Enter"]
-            self.runtime.send_keys(session.tmux, submit_keys)
-            sent_empty_submit = True
-        elif submit and not _looks_like_menu_choice(message):
-            submit_keys = self.registry.get(session.provider_id).submit_keys()
-        if submit_keys and not sent_empty_submit:
-            self.runtime.send_message(session.tmux, message, submit=False)
-            time.sleep(0.1)
-            self.runtime.send_keys(session.tmux, submit_keys)
-        elif not sent_empty_submit and (message != "" or not submit):
-            self.runtime.send_message(session.tmux, message, submit=submit)
+        ref = self._runtime_ref(session)
+        runtime_adapter = self._runtime_for(session.runtime)
+        submit_keys = self._send_provider_message(
+            runtime_adapter,
+            ref,
+            session.provider_id,
+            message,
+            submit=submit,
+        )
         event_id = self._event(
             session,
             "send_message",
@@ -524,33 +553,71 @@ class SessionManager:
         append_transcript(session, f"\n[agentpool sent]\n{redact_text(message)}\n")
         return {"ok": True, "session_id": session_id, "event_id": event_id}
 
+    def _settle_runtime_before_initial_send(
+        self,
+        runtime_adapter: RuntimeAdapter,
+        ref: RuntimeRef,
+    ) -> None:
+        try:
+            runtime_adapter.capture(ref, lines=20)
+        except ToolError:
+            time.sleep(0.5)
+
+    def _send_provider_message(
+        self,
+        runtime_adapter: RuntimeAdapter,
+        ref: RuntimeRef,
+        provider_id: str,
+        message: str,
+        *,
+        submit: bool = True,
+    ) -> list[str] | None:
+        submit_keys = None
+        sent_empty_submit = False
+        if submit and message == "":
+            submit_keys = ["Enter"]
+            runtime_adapter.send_keys(ref, submit_keys)
+            sent_empty_submit = True
+        elif submit and not _looks_like_menu_choice(message):
+            submit_keys = self.registry.get(provider_id).submit_keys()
+        if submit_keys and not sent_empty_submit:
+            runtime_adapter.send_message(ref, message, submit=False)
+            time.sleep(0.1)
+            runtime_adapter.send_keys(ref, submit_keys)
+        elif not sent_empty_submit and (message != "" or not submit):
+            runtime_adapter.send_message(ref, message, submit=submit)
+        return submit_keys
+
     def send_worker_keys(self, session_id: str, keys: list[str]) -> dict[str, Any]:
         enforce_raw_keys_policy(self.config, keys)
         session = self._require_session(session_id)
         self._enforce_deadline_or_raise(session)
-        if not session.tmux:
-            raise ToolError("TMUX_SESSION_NOT_FOUND", "Session has no tmux reference.", {"session_id": session_id})
-        self.runtime.send_keys(session.tmux, keys)
+        ref = self._runtime_ref(session)
+        self._runtime_for(session.runtime).send_keys(ref, keys)
         self._event(session, "send_keys", state=session.state.value, metadata={"keys": keys})
         return {"ok": True, "session_id": session_id}
 
     def interrupt_worker(self, session_id: str) -> dict[str, Any]:
         session = self._require_session(session_id)
-        if not session.tmux:
-            raise ToolError("TMUX_SESSION_NOT_FOUND", "Session has no tmux reference.", {"session_id": session_id})
-        self.runtime.interrupt(session.tmux)
+        ref = self._runtime_ref(session)
+        self._runtime_for(session.runtime).interrupt(ref)
         self._event(session, "interrupt", state=session.state.value)
         return {"ok": True, "state": session.state.value if hasattr(session.state, "value") else session.state}
 
     def attach_info(self, session_id: str) -> dict[str, Any]:
         session = self._require_session(session_id)
-        if not session.tmux:
-            raise ToolError("TMUX_SESSION_NOT_FOUND", "Session has no tmux reference.", {"session_id": session_id})
+        ref = self._runtime_ref(session)
+        runtime_adapter = self._runtime_for(session.runtime)
+        live_control = self._runtime_live_control(runtime_adapter, ref)
         return {
             "session_id": session_id,
-            "attach_command": self.runtime.attach_command(session.tmux),
-            "tmux_session": session.tmux.session_name,
-            "pane_target": session.tmux.target,
+            "runtime": session.runtime.value if hasattr(session.runtime, "value") else session.runtime,
+            "attach_command": runtime_adapter.attach_command(ref),
+            "can_attach": live_control.get("can_attach"),
+            "attach_kind": live_control.get("attach_kind"),
+            "commands": live_control.get("commands"),
+            "tmux_session": session.tmux.session_name if session.tmux else None,
+            "pane_target": session.tmux.target if session.tmux else None,
         }
 
     def collect_worker_artifacts(
@@ -562,16 +629,31 @@ class SessionManager:
     ) -> dict[str, Any]:
         session = self._require_session(session_id)
         screen = ""
-        if session.tmux and self.runtime.exists(session.tmux):
+        ref = self._runtime_ref(session, required=False)
+        runtime_adapter = self._runtime_for(session.runtime)
+        runtime_exists = bool(ref and runtime_adapter.exists(ref))
+        if ref and runtime_exists:
             try:
-                screen = self.runtime.capture(session.tmux, self.config.runtime.tmux.capture_lines)
+                screen = runtime_adapter.capture(ref, self._runtime_capture_lines(session.runtime, None))
             except ToolError as exc:
-                if exc.error.code != "TMUX_SESSION_NOT_FOUND":
+                if exc.error.code not in {"TMUX_SESSION_NOT_FOUND", "RUNTIME_SESSION_NOT_FOUND"}:
                     raise
                 latest_screen = Path(session.artifact_dir) / "latest_screen.txt"
                 screen = latest_screen.read_text(encoding="utf-8") if latest_screen.exists() else ""
         screen = redact_text(screen)
         result = collect_artifacts(session, screen, include_diff=include_diff)
+        if ref and runtime_exists:
+            failed = session.state in {SessionState.FAILED, SessionState.CANCELLED}
+            for artifact in self._runtime_extra_artifacts(runtime_adapter, ref, Path(session.artifact_dir), failed):
+                path = Path(artifact["path"])
+                if path.exists():
+                    result["artifacts"].append(
+                        ArtifactRecord(
+                            kind=artifact["kind"],
+                            path=str(path),
+                            sha256=sha256_file(path),
+                        ).model_dump(mode="json")
+                    )
         for artifact in result["artifacts"]:
             self.store.save_artifact(session_id, artifact=ArtifactRecord.model_validate(artifact))
         if mark_completed and session.state not in {SessionState.CANCELLED, SessionState.FAILED}:
@@ -811,22 +893,27 @@ class SessionManager:
         state = session.state if isinstance(session.state, SessionState) else SessionState(session.state)
         terminal = not active_state(state)
         previous_terminate = any(event["event_type"] == "terminate" for event in self.store.list_events(session_id))
-        tmux_exists = bool(session.tmux and self.runtime.exists(session.tmux))
+        ref = self._runtime_ref(session, required=False)
+        runtime_adapter = self._runtime_for(session.runtime)
+        runtime_exists = bool(ref and runtime_adapter.exists(ref))
         final_state = state if not active_state(state) else SessionState.CANCELLED
         plan = {
             "session_id": session_id,
             "ok": True,
             "state": final_state.value,
             "current_state": state.value,
-            "would_terminate_tmux": tmux_exists and not (terminal and previous_terminate),
+            "would_terminate_runtime": runtime_exists and not (terminal and previous_terminate),
+            "would_terminate_tmux": session.runtime == RuntimeKind.TMUX
+            and runtime_exists
+            and not (terminal and previous_terminate),
             "already_terminated": terminal and previous_terminate,
         }
         if dry_run:
             return {"dry_run": True, **plan}
         if plan["already_terminated"]:
             return plan
-        if tmux_exists:
-            self.runtime.terminate(session.tmux)  # type: ignore[arg-type]
+        if ref and runtime_exists:
+            runtime_adapter.terminate(ref)
         self.store.update_session_state(session_id, final_state, ended_at=utc_now_iso())
         self._event(session, "terminate", state=final_state.value, metadata={"reason": reason})
         return {**plan, "already_terminated": False}
@@ -834,20 +921,26 @@ class SessionManager:
     def reconcile_sessions(self) -> dict[str, Any]:
         reconciled = []
         for session in self.store.list_sessions():
-            if not active_state(session.state) or not session.tmux:
+            ref = self._runtime_ref(session, required=False)
+            if not active_state(session.state) or not ref:
                 continue
             timed_out = self._enforce_deadline(session)
             if timed_out:
                 reconciled.append(session.id)
                 continue
-            if self.runtime.exists(session.tmux):
+            runtime_adapter = self._runtime_for(session.runtime)
+            if runtime_adapter.exists(ref):
                 continue
             self.store.update_session_state(session.id, SessionState.FAILED, ended_at=utc_now_iso())
             self._event(
                 session,
-                "reconcile_dead_tmux",
+                "reconcile_dead_tmux" if session.runtime == RuntimeKind.TMUX else "reconcile_dead_runtime",
                 state=SessionState.FAILED.value,
-                metadata={"tmux_session": session.tmux.session_name},
+                metadata={
+                    "runtime": session.runtime.value if hasattr(session.runtime, "value") else session.runtime,
+                    "runtime_session": ref.session_name,
+                    "tmux_session": session.tmux.session_name if session.tmux else None,
+                },
             )
             reconciled.append(session.id)
         return {"reconciled": reconciled, "count": len(reconciled)}
@@ -893,6 +986,120 @@ class SessionManager:
             },
         )
         return event_id
+
+    def _resolve_runtime_kind(self, requested: RuntimeKind | str | None) -> RuntimeKind:
+        return _coerce_runtime_kind(requested or self.config.runtime.default)
+
+    def _runtime_for(self, kind: RuntimeKind | str) -> RuntimeAdapter:
+        runtime_kind = _coerce_runtime_kind(kind)
+        runtime = self.runtimes.get(runtime_kind)
+        if runtime:
+            return runtime
+        if runtime_kind == RuntimeKind.TMUX:
+            runtime = TmuxRuntime()
+        elif runtime_kind == RuntimeKind.TERMINAL_CONTROL:
+            runtime = TerminalControlRuntime(self.config.runtime.terminal_control)
+        else:
+            raise ToolError(
+                "RUNTIME_NOT_SUPPORTED",
+                f"Runtime {runtime_kind.value} is not supported for worker sessions.",
+                {"runtime": runtime_kind.value},
+            )
+        self.runtimes[runtime_kind] = runtime
+        return runtime
+
+    def _runtime_ref(self, session: AgentSession, required: bool = True) -> RuntimeRef | None:
+        runtime_kind = _coerce_runtime_kind(session.runtime)
+        if runtime_kind == RuntimeKind.TMUX:
+            if session.tmux:
+                return session.tmux
+            raw = (session.metadata or {}).get("runtime_ref")
+            if raw:
+                return TmuxSessionRef.model_validate(raw)
+        if runtime_kind == RuntimeKind.TERMINAL_CONTROL:
+            raw = (session.metadata or {}).get("runtime_ref")
+            if raw:
+                return TerminalControlSessionRef.model_validate(raw)
+        if required:
+            raise ToolError(
+                "RUNTIME_SESSION_NOT_FOUND",
+                "Session has no runtime reference.",
+                {"session_id": session.id, "runtime": runtime_kind.value},
+            )
+        return None
+
+    def _set_runtime_ref(self, session: AgentSession, ref: RuntimeRef) -> None:
+        if isinstance(ref, TmuxSessionRef):
+            session.tmux = ref
+        session.metadata["runtime_ref"] = ref.model_dump(mode="json")
+
+    def _runtime_capture_lines(self, runtime: RuntimeKind | str, override: int | None) -> int:
+        if override is not None:
+            return override
+        runtime_kind = _coerce_runtime_kind(runtime)
+        if runtime_kind == RuntimeKind.TERMINAL_CONTROL:
+            return self.config.runtime.terminal_control.capture_lines
+        return self.config.runtime.tmux.capture_lines
+
+    def _runtime_session_prefix(self, runtime: RuntimeKind | str) -> str:
+        runtime_kind = _coerce_runtime_kind(runtime)
+        if runtime_kind == RuntimeKind.TERMINAL_CONTROL:
+            return self.config.runtime.terminal_control.session_prefix
+        return self.config.runtime.tmux.session_prefix
+
+    def _runtime_live_control(self, runtime: RuntimeAdapter, ref: RuntimeRef) -> dict[str, object]:
+        if hasattr(runtime, "live_control"):
+            return runtime.live_control(ref, self.config.policy.allow_raw_keys)
+        return {
+            "can_capture_screen": True,
+            "can_send_message": True,
+            "can_send_keys": self.config.policy.allow_raw_keys,
+            "can_interrupt": True,
+            "can_attach": True,
+            "attach_kind": "interactive",
+        }
+
+    def _runtime_extra_artifacts(
+        self,
+        runtime: RuntimeAdapter,
+        ref: RuntimeRef,
+        artifact_dir: Path,
+        failed: bool,
+    ) -> list[dict[str, str]]:
+        if not hasattr(runtime, "extra_artifacts"):
+            return []
+        return runtime.extra_artifacts(ref, artifact_dir, failed=failed)
+
+    def _runtime_inventory(self) -> list[dict[str, Any]]:
+        tmux = self._runtime_for(RuntimeKind.TMUX)
+        termctrl = TerminalControlRuntime(self.config.runtime.terminal_control)
+        return [
+            {
+                "kind": RuntimeKind.TMUX.value,
+                "default": _coerce_runtime_kind(self.config.runtime.default) == RuntimeKind.TMUX,
+                "enabled": True,
+                "available": bool(getattr(tmux, "tmux_binary", None)),
+                "path": getattr(tmux, "tmux_binary", None),
+            },
+            {
+                "kind": RuntimeKind.TERMINAL_CONTROL.value,
+                "default": _coerce_runtime_kind(self.config.runtime.default) == RuntimeKind.TERMINAL_CONTROL,
+                "enabled": self.config.runtime.terminal_control.enabled,
+                "available": bool(termctrl.binary),
+                "path": termctrl.binary,
+            },
+        ]
+
+    def _advertised_provider_runtimes(
+        self,
+        runtime_inventory: list[dict[str, Any]] | None = None,
+    ) -> list[RuntimeKind]:
+        inventory = runtime_inventory or self._runtime_inventory()
+        runtimes = [RuntimeKind.TMUX]
+        terminal = next((item for item in inventory if item["kind"] == RuntimeKind.TERMINAL_CONTROL.value), None)
+        if terminal and terminal["available"] and (terminal["enabled"] or terminal["default"]):
+            runtimes.append(RuntimeKind.TERMINAL_CONTROL)
+        return runtimes
 
     def _enforce_cached_usage_policy(self, provider_id: str) -> None:
         snapshots = self.store.latest_usage_snapshots(provider_id)
@@ -957,8 +1164,11 @@ class SessionManager:
             deadline = deadline.replace(tzinfo=timezone.utc)
         if datetime.now(timezone.utc) <= deadline:
             return None
-        if session.tmux and self.runtime.exists(session.tmux):
-            self.runtime.terminate(session.tmux)
+        ref = self._runtime_ref(session, required=False)
+        if ref:
+            runtime_adapter = self._runtime_for(session.runtime)
+            if runtime_adapter.exists(ref):
+                runtime_adapter.terminate(ref)
         session.state = SessionState.CANCELLED
         session.ended_at = datetime.now(timezone.utc)
         self.store.update_session_state(session.id, SessionState.CANCELLED, ended_at=session.ended_at.isoformat())
@@ -1011,7 +1221,23 @@ class SessionManager:
             shutil.rmtree(artifact_dir, ignore_errors=True)
 
 
-def _tmux_name(prefix: str, provider_id: str, session_id: str) -> str:
+def _coerce_runtime_kind(value: RuntimeKind | str) -> RuntimeKind:
+    if isinstance(value, RuntimeKind):
+        return value
+    normalized = str(value).strip().lower().replace("_", "-")
+    if normalized in {"termctrl", "terminal"}:
+        normalized = RuntimeKind.TERMINAL_CONTROL.value
+    try:
+        return RuntimeKind(normalized)
+    except ValueError:
+        raise ToolError(
+            "RUNTIME_NOT_SUPPORTED",
+            f"Runtime {value!r} is not supported for worker sessions.",
+            {"runtime": str(value)},
+        ) from None
+
+
+def _runtime_name(prefix: str, provider_id: str, session_id: str) -> str:
     safe_provider = "".join(ch if ch.isalnum() else "-" for ch in provider_id).strip("-")
     return f"{prefix}-{safe_provider}-{session_id[-6:]}"
 
@@ -1055,12 +1281,15 @@ def _normalize_session_limit(limit: int | None) -> int | None:
 
 def _session_summary(session: AgentSession) -> dict[str, Any]:
     metadata = session.metadata or {}
+    runtime_ref = metadata.get("runtime_ref") if isinstance(metadata.get("runtime_ref"), dict) else {}
     return {
         "id": session.id,
         "provider_id": session.provider_id,
+        "runtime": session.runtime.value if hasattr(session.runtime, "value") else session.runtime,
         "state": session.state.value if hasattr(session.state, "value") else session.state,
         "created_at": session.created_at.isoformat(),
         "deadline_at": metadata.get("deadline_at"),
+        "runtime_session": runtime_ref.get("session_name"),
         "tmux_session": session.tmux.session_name if session.tmux else None,
     }
 

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.1.12 - 2026-06-06
+
+- Add optional Terminal Control runtime support while keeping tmux as the
+  default worker runtime.
+- Fix Claude Code steering submission by using provider-specific submit keys
+  for both initial prompts and live `send_worker_message` calls.
+- Restore MCP capacity/cache compatibility aliases, add searchable MCP tool
+  descriptions and annotations, and make Cursor Agent CLI detection robust when
+  MCP hosts launch AgentPool with a minimal `PATH`.
+- Add real-provider and fake-provider coverage for tmux and Terminal Control,
+  plus focused regression coverage for MCP aliases and provider binary lookup.
+
 ## 0.1.11 - 2026-06-05
 
 - Refresh provider model catalogs from current Claude Code, Codex, Cursor,

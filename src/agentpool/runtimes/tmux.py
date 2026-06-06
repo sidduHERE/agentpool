@@ -94,6 +94,19 @@ class TmuxRuntime:
     def attach_command(self, ref: TmuxSessionRef) -> str:
         return f"tmux attach -t {ref.session_name}"
 
+    def live_control(self, ref: TmuxSessionRef, allow_raw_keys: bool) -> dict[str, object]:
+        return {
+            "can_capture_screen": True,
+            "can_send_message": True,
+            "can_send_keys": allow_raw_keys,
+            "can_interrupt": True,
+            "can_attach": True,
+            "attach_kind": "interactive",
+        }
+
+    def extra_artifacts(self, ref: TmuxSessionRef, artifact_dir: Path, failed: bool = False) -> list[dict[str, str]]:
+        return []
+
     def terminate(self, ref: TmuxSessionRef) -> None:
         tmux = self.require_tmux()
         pgid = self._pane_process_group(ref)

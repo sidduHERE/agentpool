@@ -8,7 +8,8 @@ Default real-provider behavior is intentionally limited:
 - Probe version with a short timeout.
 - Report auth as `unknown` unless a safe probe exists.
 - Report usage as `unknown` unless a safe explicit probe exists.
-- Launch through tmux using the provider's normal CLI command.
+- Launch through the selected runtime using the provider's normal CLI command;
+  tmux is the default runtime and Terminal Control is optional.
 - Pin a requested model only when the provider exposes a safe process-local
   mechanism for it.
 
@@ -50,12 +51,17 @@ Model pinning behavior:
   `--reasoning-effort`, which AgentPool forwards when requested.
 - AgentPool does not edit or persist provider credentials or user defaults.
 
-Tmux submit behavior:
+Runtime submit behavior:
 
 - Most providers submit pasted text with terminal Enter.
 - `codex-cli` submits with `C-m` in tmux.
+- `claude-code` receives an explicit `Enter` after pasted steering so
+  multi-line messages ending in a newline are submitted instead of left in the
+  composer.
 - Short menu selections such as startup trust or update prompts still use normal
   Enter so they do not go through provider composer shortcuts.
+- Terminal Control maps the same submit keys onto its named key vocabulary, for
+  example `C-m` to `enter` and `C-c` to `ctrl-c`.
 
 Fake providers under `src/agentpool/fixtures/fake_agents/` are the executable contract for v0.1.
 They are packaged with AgentPool so `agentpool smoke --provider fake-question`

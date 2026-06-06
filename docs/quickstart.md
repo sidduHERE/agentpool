@@ -20,8 +20,8 @@ agentpool init
 agentpool doctor --deep --privacy
 ```
 
-`doctor` confirms `tmux`, SQLite, and the artifact root, and lists each
-provider's install/auth state.
+`doctor` confirms runtime availability, SQLite, and the artifact root, and lists
+each provider's install/auth state.
 
 ## 2. Smoke test without a real provider
 

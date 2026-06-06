@@ -11,7 +11,7 @@ from agentpool.mcp.resources import read_resource
 from agentpool.models import ToolError
 from agentpool.session_manager import SessionManager
 
-DEFAULT_TOOL_LIST_BUDGET_BYTES = 8_000
+DEFAULT_TOOL_LIST_BUDGET_BYTES = 12_000
 
 SERVER_INSTRUCTIONS = """AgentPool helps you use every coding-agent subscription
 the user pays for: read each provider's live usage limits and offload work to one
@@ -30,7 +30,9 @@ TOOLSETS: dict[str, set[str]] = {
     "default": {
         "get_inventory",
         "get_usage_summary",
+        "get_capacity_summary",
         "get_usage_snapshot",
+        "get_cached_usage_snapshot",
         "get_provider_models",
         "get_delegation_preferences",
         "spawn_worker",
@@ -49,6 +51,24 @@ TOOLSETS: dict[str, set[str]] = {
     "worktrees": {"list_worktrees", "cleanup_worktree"},
 }
 ALL_TOOLS = set().union(*TOOLSETS.values())
+
+TOOL_DESCRIPTIONS = {
+    "get_inventory": "AgentPool provider inventory: installed CLIs, auth, runtime support, models, and optional cached usage state.",
+    "get_usage_summary": "AgentPool usage and capacity summary: provider headroom, quota windows, usable status, and cached or bounded refreshed usage.",
+    "get_capacity_summary": "Compatibility alias for get_usage_summary. Use for AgentPool capacity, quota, and provider headroom checks.",
+    "get_usage_snapshot": "AgentPool raw usage snapshots. Defaults to SQLite cache; refresh is bounded and non-interactive in MCP.",
+    "get_cached_usage_snapshot": "Compatibility alias for cached get_usage_snapshot(refresh=false): read persisted provider usage without live probes.",
+    "get_provider_models": "AgentPool provider model catalog lookup, including Cursor Composer models, Codex models, Claude models, and configured aliases.",
+    "get_delegation_preferences": "AgentPool delegation preferences from the user: when to use workers, preferred providers, and safety posture.",
+    "spawn_worker": "AgentPool spawn worker: start one explicit provider CLI session, such as cursor-cli composer-2.5, codex-cli, or claude-code.",
+    "observe_worker": "AgentPool observe worker: capture state, questions, approval prompts, completion, errors, and readiness from a worker session.",
+    "send_worker_message": "AgentPool send worker message: steer an existing worker session and submit the text when requested.",
+    "interrupt_worker": "AgentPool interrupt worker: send an interrupt to a running worker session.",
+    "collect_worker_artifacts": "AgentPool collect worker artifacts: result, transcript, events, git diff, and runtime artifacts.",
+    "get_artifact_manifest": "AgentPool artifact manifest: list stored files for a worker session without inlining worker text.",
+    "read_worker_transcript": "AgentPool read worker transcript: bounded transcript pages, with lockdown support for untrusted worker text.",
+    "terminate_worker": "AgentPool terminate worker: stop the selected runtime session and mark it cancelled when still active.",
+}
 
 DEFAULT_RESOURCES = {
     "agentpool://onboarding",
@@ -86,6 +106,7 @@ def build_mcp_server(
 ) -> Any:
     try:
         from mcp.server.fastmcp import FastMCP
+        from mcp.types import ToolAnnotations
     except ImportError as exc:
         raise SystemExit("The mcp package is required to run `agentpool mcp`.") from exc
 
@@ -94,6 +115,19 @@ def build_mcp_server(
     selected_resources = _selected_resources(selected_toolsets)
     selected_prompts = _selected_prompts(selected_toolsets)
     server = FastMCP("agentpool", instructions=SERVER_INSTRUCTIONS)
+    read_only = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+    side_effecting = ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+    terminating = ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
 
     def call(fn: Any, *args: Any, **kwargs: Any) -> Any:
         try:
@@ -112,12 +146,22 @@ def build_mcp_server(
             )
 
     if "get_inventory" in selected:
-        @server.tool(title="Get Inventory", structured_output=False)
+        @server.tool(
+            title="Get Inventory",
+            description=TOOL_DESCRIPTIONS["get_inventory"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def get_inventory(include_usage: bool = True) -> dict[str, Any]:
             return call(tools.get_inventory, include_usage)
 
     if "get_usage_snapshot" in selected:
-        @server.tool(title="Get Usage Snapshot", structured_output=False)
+        @server.tool(
+            title="Get Usage Snapshot",
+            description=TOOL_DESCRIPTIONS["get_usage_snapshot"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def get_usage_snapshot(
             provider_id: str | None = None,
             refresh: bool = False,
@@ -126,8 +170,23 @@ def build_mcp_server(
         ) -> dict[str, Any]:
             return call(tools.get_usage_snapshot, provider_id, refresh, backend, timeout_seconds)
 
+    if "get_cached_usage_snapshot" in selected:
+        @server.tool(
+            title="Get Cached Usage Snapshot",
+            description=TOOL_DESCRIPTIONS["get_cached_usage_snapshot"],
+            annotations=read_only,
+            structured_output=False,
+        )
+        def get_cached_usage_snapshot(provider_id: str | None = None) -> dict[str, Any]:
+            return call(tools.get_cached_usage_snapshot, provider_id)
+
     if "get_usage_summary" in selected:
-        @server.tool(title="Get Usage Summary", structured_output=False)
+        @server.tool(
+            title="Get Usage Summary",
+            description=TOOL_DESCRIPTIONS["get_usage_summary"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def get_usage_summary(
             provider_id: str | None = None,
             refresh: bool = False,
@@ -135,6 +194,21 @@ def build_mcp_server(
             timeout_seconds: float = tools.MCP_USAGE_REFRESH_TIMEOUT_SECONDS,
         ) -> dict[str, Any]:
             return call(tools.get_usage_summary, provider_id, refresh, backend, timeout_seconds)
+
+    if "get_capacity_summary" in selected:
+        @server.tool(
+            title="Get Capacity Summary",
+            description=TOOL_DESCRIPTIONS["get_capacity_summary"],
+            annotations=read_only,
+            structured_output=False,
+        )
+        def get_capacity_summary(
+            provider_id: str | None = None,
+            refresh: bool = False,
+            backend: str = "combined",
+            timeout_seconds: float = tools.MCP_USAGE_REFRESH_TIMEOUT_SECONDS,
+        ) -> dict[str, Any]:
+            return call(tools.get_capacity_summary, provider_id, refresh, backend, timeout_seconds)
 
     if "get_stats" in selected:
         @server.tool(title="Get Stats", structured_output=False)
@@ -156,12 +230,22 @@ def build_mcp_server(
             return call(tools.get_stats_card, window, output_path, scope)
 
     if "get_provider_models" in selected:
-        @server.tool(title="Get Provider Models", structured_output=False)
+        @server.tool(
+            title="Get Provider Models",
+            description=TOOL_DESCRIPTIONS["get_provider_models"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def get_provider_models(provider_id: str | None = None) -> dict[str, Any]:
             return call(tools.get_provider_models, provider_id)
 
     if "get_delegation_preferences" in selected:
-        @server.tool(title="Get Delegation Preferences", structured_output=False)
+        @server.tool(
+            title="Get Delegation Preferences",
+            description=TOOL_DESCRIPTIONS["get_delegation_preferences"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def get_delegation_preferences() -> dict[str, Any]:
             return call(tools.get_delegation_preferences)
 
@@ -187,7 +271,12 @@ def build_mcp_server(
             )
 
     if "spawn_worker" in selected:
-        @server.tool(title="Spawn Worker", structured_output=False)
+        @server.tool(
+            title="Spawn Worker",
+            description=TOOL_DESCRIPTIONS["spawn_worker"],
+            annotations=side_effecting,
+            structured_output=False,
+        )
         def spawn_worker(
             provider_id: str,
             task: str,
@@ -195,7 +284,7 @@ def build_mcp_server(
             role: str = "explorer",
             model: str | None = None,
             account: str | None = None,
-            runtime: str = "tmux",
+            runtime: str | None = None,
             isolation: str = "read_only",
             allowed_files: list[str] | None = None,
             max_runtime_seconds: int | None = None,
@@ -227,7 +316,12 @@ def build_mcp_server(
             )
 
     if "observe_worker" in selected:
-        @server.tool(title="Observe Worker", structured_output=False)
+        @server.tool(
+            title="Observe Worker",
+            description=TOOL_DESCRIPTIONS["observe_worker"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def observe_worker(
             session_id: str,
             wait_for: list[str] | None = None,
@@ -238,7 +332,12 @@ def build_mcp_server(
             return call(tools.observe_worker, session_id, wait_for, timeout_seconds, detail, max_lines, lockdown)
 
     if "send_worker_message" in selected:
-        @server.tool(title="Send Worker Message", structured_output=False)
+        @server.tool(
+            title="Send Worker Message",
+            description=TOOL_DESCRIPTIONS["send_worker_message"],
+            annotations=side_effecting,
+            structured_output=False,
+        )
         def send_worker_message(session_id: str, message: str, submit: bool = True) -> dict[str, Any]:
             return call(tools.send_worker_message, session_id, message, submit)
 
@@ -248,7 +347,12 @@ def build_mcp_server(
             return call(tools.send_worker_keys, session_id, keys)
 
     if "interrupt_worker" in selected:
-        @server.tool(title="Interrupt Worker", structured_output=False)
+        @server.tool(
+            title="Interrupt Worker",
+            description=TOOL_DESCRIPTIONS["interrupt_worker"],
+            annotations=side_effecting,
+            structured_output=False,
+        )
         def interrupt_worker(session_id: str) -> dict[str, Any]:
             return call(tools.interrupt_worker, session_id)
 
@@ -258,7 +362,12 @@ def build_mcp_server(
             return call(tools.attach_info, session_id)
 
     if "collect_worker_artifacts" in selected:
-        @server.tool(title="Collect Worker Artifacts", structured_output=False)
+        @server.tool(
+            title="Collect Worker Artifacts",
+            description=TOOL_DESCRIPTIONS["collect_worker_artifacts"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def collect_worker_artifacts(
             session_id: str,
             include_diff: bool = True,
@@ -277,12 +386,22 @@ def build_mcp_server(
             )
 
     if "get_artifact_manifest" in selected:
-        @server.tool(title="Get Artifact Manifest", structured_output=False)
+        @server.tool(
+            title="Get Artifact Manifest",
+            description=TOOL_DESCRIPTIONS["get_artifact_manifest"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def get_artifact_manifest(session_id: str) -> dict[str, Any]:
             return call(tools.get_artifact_manifest, session_id, lockdown)
 
     if "read_worker_transcript" in selected:
-        @server.tool(title="Read Worker Transcript", structured_output=False)
+        @server.tool(
+            title="Read Worker Transcript",
+            description=TOOL_DESCRIPTIONS["read_worker_transcript"],
+            annotations=read_only,
+            structured_output=False,
+        )
         def read_worker_transcript(
             session_id: str,
             offset: int = 0,
@@ -346,7 +465,12 @@ def build_mcp_server(
             return call(tools.get_session, session_id)
 
     if "terminate_worker" in selected:
-        @server.tool(title="Terminate Worker", structured_output=False)
+        @server.tool(
+            title="Terminate Worker",
+            description=TOOL_DESCRIPTIONS["terminate_worker"],
+            annotations=terminating,
+            structured_output=False,
+        )
         def terminate_worker(session_id: str, reason: str | None = None) -> dict[str, Any]:
             return call(tools.terminate_worker, session_id, reason)
 

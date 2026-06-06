@@ -1,16 +1,17 @@
 # Install AgentPool
 
 AgentPool is a local CLI and MCP server. Install it on the same machine where
-your coding-agent CLIs are logged in and where `tmux` is available.
+your coding-agent CLIs are logged in and where your selected runtime is
+available.
 
 ## Requirements
 
 - Python 3.11 or newer.
-- `tmux` on `PATH`.
+- `tmux` on `PATH` for the default runtime.
+- Optional: `termctrl` on `PATH` for the Terminal Control runtime.
 - Git on `PATH`.
-- macOS or Linux for the runtime. The `agentpool-cli` package installs on
-  Windows too, but `tmux` is not native there, so Windows is supported only
-  through WSL.
+- macOS or Linux for live runtimes. The `agentpool-cli` package installs on
+  Windows too, but terminal runtimes are supported only through WSL.
 
 ## Install From PyPI
 

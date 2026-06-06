@@ -32,7 +32,9 @@ The default toolset is the smallest worker lifecycle surface:
 
 - `get_inventory`
 - `get_usage_summary`
+- `get_capacity_summary`
 - `get_usage_snapshot`
+- `get_cached_usage_snapshot`
 - `get_provider_models`
 - `get_delegation_preferences`
 - `spawn_worker`
@@ -44,11 +46,10 @@ The default toolset is the smallest worker lifecycle surface:
 - `read_worker_transcript`
 - `terminate_worker`
 
-Removed MCP aliases:
+Compatibility aliases:
 
-- `send_message`
-- `get_capacity_summary`
-- `get_cached_usage_snapshot`
+- `get_capacity_summary`: alias for `get_usage_summary`
+- `get_cached_usage_snapshot`: alias for `get_usage_snapshot(refresh=false)`
 
 Use `get_usage_summary(refresh=false)` for the compact provider-capacity view.
 Use `get_usage_snapshot(refresh=false)` only when you need raw snapshots; cached

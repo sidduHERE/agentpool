@@ -566,6 +566,8 @@ def _next_command_for_error(exc: ToolError) -> str | None:
         return "agentpool spawn --provider <provider-id> --repo <git-repo-path> --task-stdin --isolation read_only"
     if code == "TMUX_NOT_FOUND":
         return "brew install tmux"
+    if code == "TERMINAL_CONTROL_NOT_FOUND":
+        return "install termctrl, then run agentpool doctor --deep --json"
     if code == "INVALID_WINDOW":
         return "agentpool stats --since 7d --json"
     if code == "INVALID_TRANSCRIPT_RANGE":
@@ -580,7 +582,7 @@ def _next_command_for_error(exc: ToolError) -> str | None:
 @app.command()
 def doctor(
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
-    deep: Annotated[bool, typer.Option("--deep", help="Run tmux/sqlite/artifact/cache checks.")] = False,
+    deep: Annotated[bool, typer.Option("--deep", help="Run runtime/sqlite/artifact/cache checks.")] = False,
     privacy: Annotated[
         bool,
         typer.Option("--privacy", help="Show local storage and usage-probe privacy posture."),
@@ -594,9 +596,15 @@ def doctor(
     """
     mgr = manager()
     tmux_path = shutil.which("tmux")
+    termctrl_path = shutil.which(mgr.config.runtime.terminal_control.binary)
     inventory = mgr.inventory(include_usage=True)
     data = {
         "tmux": {"installed": bool(tmux_path), "path": tmux_path},
+        "terminal_control": {
+            "enabled": mgr.config.runtime.terminal_control.enabled,
+            "installed": bool(termctrl_path),
+            "path": termctrl_path,
+        },
         "config_path": str(DEFAULT_CONFIG_PATH),
         "db_path": str(mgr.config.storage.db),
         "artifact_root": str(mgr.config.storage.artifacts),
@@ -618,6 +626,7 @@ def doctor(
             provider["usage"]["status"] if provider.get("usage") else "unknown",
         )
     console.print(f"tmux: {tmux_path or 'missing'}")
+    console.print(f"terminal-control: {termctrl_path or 'missing'}")
     if deep:
         deep_data = data["deep"]
         console.print(f"deep checks: {'ok' if deep_data['ok'] else 'failed'}")
@@ -1513,6 +1522,7 @@ def _print_status_payload(data: dict[str, Any]) -> None:
         "current_state",
         "dry_run",
         "would_interrupt",
+        "would_terminate_runtime",
         "would_terminate_tmux",
         "already_terminated",
         "released",
@@ -1610,7 +1620,10 @@ def spawn(
         str,
         typer.Option("--role", help="Worker role: explorer, reviewer, implementer, tester, or custom."),
     ] = "explorer",
-    runtime: Annotated[str, typer.Option("--runtime", help="Runtime. v0.1 supports tmux only.")] = "tmux",
+    runtime: Annotated[
+        str | None,
+        typer.Option("--runtime", help="Runtime override: tmux or terminal-control. Defaults to config."),
+    ] = None,
     isolation: Annotated[
         str,
         typer.Option(
@@ -1741,7 +1754,7 @@ def observe(
     wait_for: Annotated[str | None, typer.Option("--wait-for", help="Comma-separated events.")] = None,
     timeout: Annotated[int, typer.Option("--timeout")] = 0,
     detail: Annotated[str, typer.Option("--detail", help="Output detail: summary, excerpt, or full.")] = "summary",
-    max_lines: Annotated[int | None, typer.Option("--max-lines", help="tmux capture line limit.")] = None,
+    max_lines: Annotated[int | None, typer.Option("--max-lines", help="Runtime capture line limit.")] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "--output-file", help="Write JSON observe payload to this file path."),
@@ -1952,7 +1965,10 @@ def transcript(
 @app.command()
 def terminate(
     session_id: str,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview termination without killing tmux or updating state.")] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview termination without killing the runtime session or updating state."),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
 ) -> None:
     """Terminate a worker.

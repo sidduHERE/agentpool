@@ -15,6 +15,7 @@ import yaml
 from agentpool.config import load_config
 from agentpool.models import ObserveEvent, SessionState, SpawnWorkerRequest, ToolError
 from agentpool.preferences import PREFERENCES_PATH, ensure_preferences_file
+from agentpool.runtimes.terminal_control import TerminalControlRuntime
 from agentpool.runtimes.tmux import TmuxRuntime
 from agentpool.session_manager import SessionManager
 from agentpool.store import Store
@@ -457,6 +458,7 @@ def format_mcp_install(data: dict[str, Any]) -> str:
 def deep_doctor(manager: SessionManager) -> dict[str, Any]:
     checks = [
         _check_tmux_roundtrip(manager.config.runtime.tmux.session_prefix),
+        _check_terminal_control(manager),
         _check_sqlite(manager.store),
         _check_artifact_root(manager.config.storage.artifacts),
         _check_usage_cache(manager),
@@ -880,7 +882,7 @@ def run_fake_smoke(manager: SessionManager, repo: Path, provider_id: str = "fake
         return output
     finally:
         session = manager.store.get_session(session_id)
-        if session and session.tmux and manager.runtime.exists(session.tmux):
+        if session and session.state not in {SessionState.COMPLETED, SessionState.FAILED, SessionState.CANCELLED}:
             manager.terminate_worker(session_id, reason="smoke cleanup")
 
 
@@ -1023,7 +1025,7 @@ def run_real_read_only_smoke(
         return output
     finally:
         session = manager.store.get_session(session_id)
-        if session and session.tmux and manager.runtime.exists(session.tmux):
+        if session and session.state not in {SessionState.COMPLETED, SessionState.FAILED, SessionState.CANCELLED}:
             terminated = manager.terminate_worker(session_id, reason="real read-only smoke cleanup")
             output["lifecycle"]["terminate"] = terminated["ok"]
 
@@ -1059,6 +1061,55 @@ def _check_tmux_roundtrip(prefix: str) -> dict[str, Any]:
                     break
                 time.sleep(0.2)
             return {"name": "tmux_roundtrip", "ok": "agentpool doctor ok" in captured}
+        finally:
+            if runtime.exists(ref):
+                runtime.terminate(ref)
+
+
+def _check_terminal_control(manager: SessionManager) -> dict[str, Any]:
+    config = manager.config.runtime.terminal_control
+    selected = config.enabled or manager.config.runtime.default in {"terminal-control", "terminal_control", "termctrl"}
+    runtime = TerminalControlRuntime(config)
+    if not runtime.binary:
+        return {
+            "name": "terminal_control",
+            "ok": not selected,
+            "enabled": config.enabled,
+            "selected": selected,
+            "reason": "termctrl not found" if selected else "not configured",
+        }
+    if not selected:
+        return {
+            "name": "terminal_control",
+            "ok": True,
+            "enabled": False,
+            "selected": False,
+            "path": runtime.binary,
+        }
+    session_name = f"{config.session_prefix}-doctor-{int(time.time() * 1000) % 100000}"
+    with tempfile.TemporaryDirectory(prefix="agentpool-termctrl-doctor-") as tmp:
+        try:
+            ref = runtime.spawn(
+                [
+                    sys.executable,
+                    "-c",
+                    "import time; print('agentpool doctor ok', flush=True); time.sleep(2)",
+                ],
+                Path(tmp),
+                {},
+                session_name,
+            )
+        except Exception as exc:
+            return {"name": "terminal_control", "ok": False, "path": runtime.binary, "reason": str(exc)}
+        try:
+            deadline = time.monotonic() + 3
+            captured = ""
+            while time.monotonic() < deadline:
+                captured = runtime.capture(ref, 20)
+                if "agentpool doctor ok" in captured:
+                    break
+                time.sleep(0.2)
+            return {"name": "terminal_control", "ok": "agentpool doctor ok" in captured, "path": runtime.binary}
         finally:
             if runtime.exists(ref):
                 runtime.terminate(ref)

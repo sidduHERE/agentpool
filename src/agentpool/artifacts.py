@@ -13,6 +13,7 @@ from agentpool.utils import repo_hash, sha256_file, write_json
 def create_artifact_dir(root: Path, repo_path: Path, session_id: str) -> Path:
     artifact_dir = root / repo_hash(repo_path) / session_id
     (artifact_dir / "raw" / "tmux-captures").mkdir(parents=True, exist_ok=True)
+    (artifact_dir / "raw" / "terminal-control").mkdir(parents=True, exist_ok=True)
     return artifact_dir
 
 

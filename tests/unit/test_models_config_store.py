@@ -25,6 +25,7 @@ from agentpool.models import (
     RuntimeKind,
     SessionState,
     SpawnWorkerRequest,
+    TerminalControlSessionRef,
     ToolError,
     TmuxSessionRef,
     UsageStatus,
@@ -86,6 +87,66 @@ class FailingRuntime(RecordingRuntime):
         raise RuntimeError("boom")
 
 
+class TerminalRecordingRuntime:
+    def __init__(self) -> None:
+        self.command: list[str] | None = None
+        self.sent_messages: list[str] = []
+        self.sent_keys: list[list[str]] = []
+        self.terminated = False
+        self.exists_result = True
+        self.screen = ""
+
+    def spawn(
+        self,
+        command: list[str],
+        cwd: Path,
+        env: dict[str, str],
+        session_name: str,
+    ) -> TerminalControlSessionRef:
+        self.command = command
+        return TerminalControlSessionRef(session_name=session_name)
+
+    def send_message(self, ref: TerminalControlSessionRef, text: str, submit: bool = True) -> None:
+        self.sent_messages.append(text)
+
+    def send_keys(self, ref: TerminalControlSessionRef, keys: list[str]) -> None:
+        self.sent_keys.append(keys)
+
+    def capture(self, ref: TerminalControlSessionRef, lines: int = 300) -> str:
+        return self.screen
+
+    def attach_command(self, ref: TerminalControlSessionRef) -> str:
+        return f"termctrl show {ref.session_name}"
+
+    def exists(self, ref: TerminalControlSessionRef) -> bool:
+        return self.exists_result
+
+    def terminate(self, ref: TerminalControlSessionRef) -> None:
+        self.terminated = True
+
+    def live_control(self, ref: TerminalControlSessionRef, allow_raw_keys: bool) -> dict[str, object]:
+        return {
+            "can_capture_screen": True,
+            "can_send_message": True,
+            "can_send_keys": allow_raw_keys,
+            "can_interrupt": True,
+            "can_attach": False,
+            "attach_kind": "snapshot",
+            "commands": {"show": f"termctrl show {ref.session_name}"},
+        }
+
+    def extra_artifacts(
+        self,
+        ref: TerminalControlSessionRef,
+        artifact_dir: Path,
+        failed: bool = False,
+    ) -> list[dict[str, str]]:
+        path = artifact_dir / "raw" / "terminal-control" / "current.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("terminal-control artifact\n", encoding="utf-8")
+        return [{"kind": "terminal_control_txt", "path": str(path)}]
+
+
 def test_config_defaults_include_fake_and_real_providers() -> None:
     config = load_config(Path("__missing_agentpool_config__.yaml"))
     assert config.policy.require_explicit_provider is True
@@ -106,9 +167,39 @@ def test_default_fake_provider_commands_are_packaged() -> None:
         assert script_path.is_relative_to(FAKE_AGENT_DIR)
 
 
+def test_provider_detection_checks_user_local_bin_when_path_is_minimal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "home"
+    local_bin = home / ".local" / "bin"
+    local_bin.mkdir(parents=True)
+    agent = local_bin / "agent"
+    agent.write_text(
+        """#!/bin/sh
+if [ "$1" = "--version" ]; then
+  echo cursor-agent-test
+elif [ "$1" = "status" ]; then
+  echo '{"isAuthenticated": true}'
+fi
+""",
+        encoding="utf-8",
+    )
+    agent.chmod(0o755)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    descriptor = build_registry(config).get("cursor-cli").detect()
+
+    assert descriptor.installed is True
+    assert descriptor.binary_path == str(agent)
+    assert descriptor.version == "cursor-agent-test"
+
+
 def test_spawn_request_rejects_auto_provider_in_policy_layer() -> None:
     request = SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=".")
-    assert request.runtime == RuntimeKind.TMUX
+    assert request.runtime is None
     assert request.isolation == "read_only"
 
 
@@ -492,6 +583,69 @@ def test_spawn_uses_provider_default_model_when_model_is_omitted(tmp_path: Path)
     assert runtime.sent_messages == []
 
 
+def test_spawn_uses_configured_terminal_control_default(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.runtime.default = RuntimeKind.TERMINAL_CONTROL.value
+    config.providers["codex-cli"].command = [sys.executable]
+    terminal_runtime = TerminalRecordingRuntime()
+    manager = SessionManager(
+        config=config,
+        runtimes={RuntimeKind.TERMINAL_CONTROL: terminal_runtime},  # type: ignore[dict-item]
+    )
+
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+    session = manager.store.get_session(result["session"]["id"])
+
+    assert session is not None
+    assert session.runtime == RuntimeKind.TERMINAL_CONTROL
+    assert session.tmux is None
+    assert session.metadata["runtime_ref"]["session_name"].startswith("agentpool-codex-cli-")
+    assert result["live_control"]["can_attach"] is False
+
+
+def test_terminal_control_runtime_lifecycle_uses_runtime_ref(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    terminal_runtime = TerminalRecordingRuntime()
+    manager = SessionManager(
+        config=config,
+        runtimes={RuntimeKind.TERMINAL_CONTROL: terminal_runtime},  # type: ignore[dict-item]
+    )
+
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(
+            provider_id="codex-cli",
+            task="inspect README",
+            repo_path=str(tmp_path),
+            runtime=RuntimeKind.TERMINAL_CONTROL,
+            initial_prompt_mode="arg",
+        )
+    )
+    session_id = result["session"]["id"]
+    terminal_runtime.screen = """AGENTPOOL_RESULT_START
+Summary: terminal-control done
+AGENTPOOL_RESULT_END
+"""
+
+    observed = manager.observe_worker(session_id)
+    manager.send_worker_message(session_id, "next", submit=False)
+    attach = manager.attach_info(session_id)
+    collected = manager.collect_worker_artifacts(session_id, mark_completed=True)
+    dry_run = manager.terminate_worker(session_id, dry_run=True)
+
+    assert observed.event == ObserveEvent.COMPLETED
+    assert terminal_runtime.sent_messages[-1] == "next"
+    assert attach["runtime"] == RuntimeKind.TERMINAL_CONTROL.value
+    assert attach["can_attach"] is False
+    assert any(artifact["kind"] == "terminal_control_txt" for artifact in collected["artifacts"])
+    assert dry_run["would_terminate_runtime"] is True
+    assert dry_run["would_terminate_tmux"] is False
+
+
 def test_spawn_codex_honors_reasoning_and_service_tier(tmp_path: Path) -> None:
     config = load_config(Path("__missing_agentpool_config__.yaml"))
     config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
@@ -601,6 +755,31 @@ def test_spawn_initial_prompt_arg_appends_prompt_without_logging_body(tmp_path: 
     assert runtime.sent_messages == []
     events = manager.store.list_events(result["session"]["id"])
     assert events[0]["metadata"]["command"][-1] == "<agentpool-initial-prompt>"
+
+
+def test_spawn_initial_prompt_uses_provider_submit_keys(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["claude-code"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(
+            provider_id="claude-code",
+            task="inspect README",
+            repo_path=str(tmp_path),
+        )
+    )
+
+    assert len(runtime.sent_messages) == 1
+    assert runtime.sent_messages[0].startswith(
+        "You are running as a delegated worker session under AgentPool."
+    )
+    assert runtime.sent_keys == [["Enter"]]
+    events = manager.store.list_events(result["session"]["id"])
+    send_event = next(event for event in events if event["event_type"] == "send_initial_prompt")
+    assert send_event["metadata"]["submit_keys"] == ["Enter"]
 
 
 def test_artifact_manifest_materializes_result_from_observed_screen(tmp_path: Path) -> None:
@@ -1199,7 +1378,7 @@ def test_composer_submit_keys_are_provider_specific() -> None:
 
     assert registry.get("codex-cli").submit_keys() == ["C-m"]
     assert registry.get("cursor-cli").submit_keys() is None
-    assert registry.get("claude-code").submit_keys() is None
+    assert registry.get("claude-code").submit_keys() == ["Enter"]
 
 
 def _catalog_summary(catalog: dict[str, object]) -> dict[str, object]:

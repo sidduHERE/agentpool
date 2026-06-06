@@ -19,7 +19,7 @@ informed, never automatic.
 
 The v0.1 alpha posture is conservative:
 
-- tmux is the required runtime.
+- tmux is the default runtime; Terminal Control is optional when configured.
 - Provider selection is explicit; `provider=auto` is rejected.
 - Usage/capacity summaries are confidence-tagged and keyed by provider id.
 - CodexBar and ccusage are optional usage helpers when installed or configured.
@@ -30,8 +30,10 @@ The v0.1 alpha posture is conservative:
 
 - Python 3.11 or newer.
 - tmux on `PATH`.
+- Optional: `termctrl` on `PATH` for the Terminal Control runtime.
 - Git for worktree isolation and diff collection.
-- macOS or Linux. Windows is not a v0.1 target except through WSL-like shells.
+- macOS or Linux for live runtimes. Windows is not a v0.1 target except through
+  WSL-like shells.
 
 ## Install
 
@@ -51,9 +53,21 @@ agentpool setup codex
 agentpool doctor --deep --privacy
 ```
 
-The `agentpool-cli` package installs on macOS, Linux, and Windows, but the
-runtime requires `tmux`, so the supported runtime is macOS or Linux (Windows
-via WSL).
+The `agentpool-cli` package installs on macOS, Linux, and Windows, but live
+terminal runtimes are supported on macOS or Linux (Windows via WSL).
+
+Optional Terminal Control config:
+
+```yaml
+runtime:
+  default: tmux
+  terminal_control:
+    enabled: true
+    binary: termctrl
+    session_prefix: agentpool
+    cols: 120
+    rows: 36
+```
 
 Install from source:
 
@@ -164,8 +178,8 @@ agentpool usage-summary --refresh --backend ccusage --provider claude-code --jso
 ordered and it is not a recommendation list. Each row includes `usable`,
 `unusable_reason`, quota windows, confidence, age/staleness, and reset timing when
 the provider exposes it. The older CLI `capacity-summary` command is retained
-as a human convenience alias; the MCP surface only exposes `get_usage_snapshot`
-and the opt-in `get_usage_summary` tool.
+as a human convenience alias; MCP also exposes `get_capacity_summary` as a
+compatibility alias for `get_usage_summary`.
 
 The default buffer is `policy.min_remaining_percent = 10`. If any reported
 quota window is below that buffer, the provider row is marked unusable for the

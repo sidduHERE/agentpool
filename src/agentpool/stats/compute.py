@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from agentpool.config import AgentPoolConfig
-from agentpool.models import AgentSession, CapacitySnapshot, ProviderDescriptor, SessionState
+from agentpool.models import AgentSession, CapacitySnapshot, ProviderDescriptor
 from agentpool.providers.registry import ProviderRegistry
 from agentpool.stats.queries import (
     has_any_usage_snapshots,
@@ -434,7 +434,7 @@ def _suggested_next(window: Window, stats: dict[str, Any]) -> list[str]:
     suggestions: list[str] = []
     if stats.get("parallelism", {}).get("peak_at"):
         suggestions.append(
-            f"Inspect peak concurrency: agentpool sessions --json (or list_sessions MCP tool)."
+            "Inspect peak concurrency: agentpool sessions --json (or list_sessions MCP tool)."
         )
     if stats.get("walls", {}).get("avoided"):
         suggestions.append("Review provider distribution with agentpool usage-summary --json.")

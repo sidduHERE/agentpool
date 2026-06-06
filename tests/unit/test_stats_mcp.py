@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from agentpool.config import AgentPoolConfig, StorageConfig
 from agentpool.mcp import tools
 from agentpool.models import AgentSession, RuntimeKind, SessionState
-from agentpool.providers.registry import build_registry
 from agentpool.session_manager import SessionManager
 from agentpool.stats.compute import compute_stats
 from agentpool.stats.window import parse_window

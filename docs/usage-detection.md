@@ -7,8 +7,9 @@ Allowed confidence values include `official`, `local_cli`, `local_config`, `prov
 Live probes are only run by explicit usage requests. Inventory remains non-invasive and reports whether a provider supports an explicit usage probe. Successful explicit probes are persisted to SQLite; `agentpool usage --cached`, `get_usage_summary(refresh=false)`, and `get_usage_snapshot(refresh=false)` read the latest persisted snapshots without refreshing providers. MCP refreshes do not run interactive provider TUI probes, because those can interfere with the host agent that is calling AgentPool. CLI callers can use `--no-interactive` on `usage` / `usage-summary`, or set `AGENTPOOL_NO_INTERACTIVE_USAGE=1`, to take the same headless posture. MCP refreshes are also bounded by a short server-side budget; if a provider is slow, AgentPool returns a partial response with an unknown row instead of holding the MCP connection open.
 
 `agentpool usage-summary` returns a `providers` map keyed by provider id. The
-CLI `capacity-summary` command is a human convenience alias; MCP does not expose
-a capacity alias. Each row includes `usable`, `unusable_reason`, `stale`, and
+CLI `capacity-summary` command and MCP `get_capacity_summary` tool are
+compatibility aliases for `usage-summary` / `get_usage_summary`. Each row
+includes `usable`, `unusable_reason`, `stale`, and
 `age_seconds`. `stale` is informational age metadata only; it does not by
 itself make a provider unusable. `usable` is derived from install/auth status,
 provider usage status, confidence, and reported quota windows. The default

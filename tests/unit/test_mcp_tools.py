@@ -70,11 +70,13 @@ def test_mcp_cached_usage_snapshot_reads_persisted_usage(tmp_path: Path) -> None
 
     live = tools.get_usage_snapshot(manager, provider_id="fake-question", refresh=True)
     cached = tools.get_usage_snapshot(manager, provider_id="fake-question")
+    cached_alias = tools.get_cached_usage_snapshot(manager, provider_id="fake-question")
 
     assert live["source"] == "live_probe"
     assert cached["source"] == "sqlite_cache"
     assert cached["snapshots"][0]["provider_id"] == "fake-question"
     assert cached["snapshots"][0]["status"] == "available"
+    assert cached_alias == cached
 
 
 def test_mcp_usage_snapshot_defaults_to_cached_without_live_probe(tmp_path: Path) -> None:
@@ -192,8 +194,12 @@ def test_usage_summary_and_onboarding_resources(tmp_path: Path) -> None:
 
     tools.get_usage_snapshot(manager, provider_id="fake-question", refresh=True)
     summary = tools.get_usage_summary(manager)
+    capacity = tools.get_capacity_summary(manager)
 
     assert summary["source"] == "sqlite_cache"
+    assert capacity["source"] == summary["source"]
+    assert set(capacity["providers"]) == set(summary["providers"])
+    assert capacity["providers"]["fake-question"]["usable"] is True
     assert summary["counts"]["available"] >= 1
     assert "fake-question" in summary["providers"]
     assert summary["preferences"]["resource_uri"] == "agentpool://preferences.md"
