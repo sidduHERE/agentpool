@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install tmux
         run: sudo apt-get update && sudo apt-get install -y tmux
