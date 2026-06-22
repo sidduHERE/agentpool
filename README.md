@@ -287,9 +287,9 @@ Use `--absolute-command` if the MCP host does not inherit your shell `PATH`.
 Verified per-host steps live in [docs/mcp-clients.md](docs/mcp-clients.md).
 Team templates: [.cursor/mcp.json.example](.cursor/mcp.json.example),
 [.mcp.json.example](.mcp.json.example), and [docs/examples/README.md](docs/examples/README.md).
-MCP Registry draft metadata: [server.json](server.json). It intentionally omits
-package entries until `agentpool-cli` exists on PyPI. Release checklist:
-[docs/release.md](docs/release.md).
+MCP Registry metadata: [server.json](server.json). It advertises the
+`agentpool-cli` PyPI package and should be bumped with each release. Release
+checklist: [docs/release.md](docs/release.md).
 Provider setup guides:
 [Cursor](docs/setup-cursor.md),
 [Cursor Agent CLI](docs/setup-cursor-cli.md),

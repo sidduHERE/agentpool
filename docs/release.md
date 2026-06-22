@@ -7,6 +7,7 @@ metadata, and onboarding verification.
 
 ```bash
 .venv/bin/python -m pytest -q
+.venv/bin/python scripts/check_release_metadata.py
 agentpool models validate --path src/agentpool/provider_model_catalog.json --json
 agentpool config validate --json
 agentpool smoke --provider fake-question --repo . --json
@@ -27,12 +28,13 @@ Update together before tagging:
 - `pyproject.toml` `[project].version`
 - `src/agentpool/__init__.py` `__version__`
 - `server.json` top-level `version`
-- `server.json` `packages[].version` after public PyPI publishing is enabled
+- `server.json` `packages[].version`
 - [CHANGELOG.md](../CHANGELOG.md)
 
 The public PyPI distribution name is `agentpool-cli`. The installed console
-command remains `agentpool`. Do not publish a package named `agentpool`; that
-PyPI name belongs to another project.
+command remains `agentpool`, with an `agentpool-cli` console-script alias for
+`uvx agentpool-cli mcp`. Do not publish a package named `agentpool`; that PyPI
+name belongs to another project.
 
 ## Tag and publish
 
@@ -51,18 +53,37 @@ The [release workflow](../.github/workflows/release.yml) will:
    repository variable `PUBLISH_TO_PYPI` is set to `true` and the `pypi`
    deployment environment is configured. Otherwise the publish job is skipped.
 
-See [Manual one-time setup](#manual-one-time-pypi-setup) below for the steps
-that must be done on PyPI before the publish job can succeed.
+Keep the external setup in
+[PyPI and GitHub trusted-publisher state](#pypi-and-github-trusted-publisher-state)
+in place before tagging.
 
-## Manual one-time PyPI setup
+## PyPI and GitHub trusted-publisher state
 
-These steps are done once, outside CI, before the first automated publish:
+The `agentpool-cli` project is already live on PyPI, and the `v0.1.12`
+distributions were uploaded using Trusted Publishing from
+`sidduHERE/agentpool` via `.github/workflows/release.yml` and the `pypi`
+environment.
 
-1. Reserve / claim the `agentpool-cli` project name on PyPI.
-2. Configure a PyPI **Trusted Publisher (pending publisher)** pointing at this
-   GitHub repository, the `release.yml` workflow, and the `pypi` environment.
-3. Create a GitHub **`pypi` deployment environment** on the repo.
-4. Set the repository variable `PUBLISH_TO_PYPI=true` to arm the publish job.
+Keep these exact external settings:
+
+- PyPI project: `agentpool-cli`
+- PyPI trusted publisher owner: `sidduHERE`
+- PyPI trusted publisher repository: `agentpool`
+- PyPI trusted publisher workflow: `release.yml`
+- PyPI trusted publisher environment: `pypi`
+- GitHub deployment environment: `pypi`
+- GitHub repository variable: `PUBLISH_TO_PYPI=true`
+
+The publish job has `id-token: write` only on the PyPI job and no PyPI token
+secret is required.
+
+Recommended GitHub hardening:
+
+- Add required reviewers to the `pypi` deployment environment so a tag push does
+  not immediately publish without a human release approval.
+- If deployment branch/tag rules are enabled, allow release tags matching `v*`;
+  do not restrict the environment to branch deployments only.
+- Keep PyPI API tokens out of GitHub secrets for this project.
 
 ## Post-release smoke
 
@@ -87,25 +108,16 @@ uv tool install --force --python python3.11 \
 
 ## MCP Registry
 
-Do not publish [server.json](../server.json) to the MCP Registry until
-`agentpool-cli` is available from PyPI. The committed metadata intentionally
-omits `packages` so it does not advertise an unavailable install method. After
-the first successful PyPI publish, add a `pypi` package entry that maps registry
-consumers to:
-
-```json
-{ "command": "agentpool", "args": ["mcp"] }
-```
-
-Bump `server.json` `packages[].version` together with the project version from
-then on.
+[server.json](../server.json) now advertises the published `agentpool-cli` PyPI
+package. Keep its top-level `version` and `packages[].version` aligned with
+`pyproject.toml` and `src/agentpool/__init__.py`.
 
 Host-specific install UX remains in [docs/mcp-clients.md](mcp-clients.md).
 
 Publish sequence:
 
 1. Publish `agentpool-cli` to PyPI with Trusted Publishing (the release job).
-2. Add the `packages` entry to `server.json`.
+2. Keep [server.json](../server.json) pointed at the same published version.
 3. Keep the README metadata comment `mcp-name: io.github.sidduHERE/agentpool`.
    The namespace casing must match the GitHub username exactly (`sidduHERE`, not
    `sidduhere`); the registry grants `io.github.<login>/*` with the login's
