@@ -11,7 +11,7 @@ Detail = Literal["summary", "excerpt", "full"]
 DETAILS: set[str] = {"summary", "excerpt", "full"}
 EXCERPT_CHARS = 1600
 FULL_CHARS = 8000
-RAW_ARTIFACT_KINDS = {"transcript", "events", "screen", "summary", "result", "diff"}
+RAW_ARTIFACT_KINDS = {"transcript", "events", "screen", "summary_partial", "summary", "result", "diff"}
 
 
 def parse_detail(value: str) -> Detail:
@@ -109,6 +109,8 @@ def collect_payload(result: dict[str, Any], detail: Detail, lockdown: bool = Fal
         "artifacts": [gate_raw_artifact(artifact, lockdown) for artifact in result.get("artifacts") or []],
         "git": result.get("git"),
     }
+    if result.get("warnings"):
+        payload["warnings"] = result["warnings"]
     summary = str(result.get("summary") or "")
     if detail == "summary" or lockdown or not summary:
         payload["worker_output"] = omitted_worker_output(detail, lockdown)

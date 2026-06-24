@@ -260,8 +260,9 @@ Once connected, a good first prompt is:
 Read agentpool://skill.md and agentpool://preferences.md. Then call
 get_delegation_preferences(), get_usage_summary(refresh=false),
 get_provider_models(), and get_inventory() before
-spawning any workers. After spawn_worker, use observe_worker for the worker
-control loop; do not poll get_session/list_sessions as a substitute. Use
+spawning any workers. After spawn_worker, use observe_worker for waits and
+poll_worker for immediate progress checks; do not poll get_session/list_sessions
+as a substitute. Use
 read_worker_transcript with offset/limit only when you need bounded transcript
 pages. If Codex shows update or hook-review startup menus, answer the numbered
 menu choice explicitly before observing again. Choose providers explicitly; do

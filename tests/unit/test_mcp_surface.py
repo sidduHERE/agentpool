@@ -14,7 +14,7 @@ from agentpool.mcp_server import (
     TOOLSETS,
     build_mcp_server,
 )
-from agentpool.models import AgentSession, ArtifactRecord, RuntimeKind, SessionState
+from agentpool.models import AgentSession, ArtifactRecord, RuntimeKind, SessionState, TmuxSessionRef
 from agentpool.session_manager import SessionManager
 from agentpool.store import Store
 
@@ -29,6 +29,7 @@ DEFAULT_TOOLS = {
     "get_delegation_preferences",
     "spawn_worker",
     "observe_worker",
+    "poll_worker",
     "send_worker_message",
     "interrupt_worker",
     "collect_worker_artifacts",
@@ -41,7 +42,7 @@ REMOVED_ALIASES = {"send_message"}
 
 def test_default_mcp_surface_is_lean(tmp_path: Path) -> None:
     async def run() -> None:
-        server = build_mcp_server(_manager(tmp_path))
+        server = build_mcp_server(_manager(tmp_path, runtime=_PollingRuntime()))
         tools = await server.list_tools()
         resources = await server.list_resources()
         templates = await server.list_resource_templates()
@@ -61,7 +62,7 @@ def test_default_mcp_surface_is_lean(tmp_path: Path) -> None:
         by_name = {tool["name"]: tool for tool in payload}
         assert by_name["get_inventory"]["annotations"]["readOnlyHint"] is True
         assert by_name["spawn_worker"]["annotations"]["readOnlyHint"] is False
-        assert by_name["terminate_worker"]["annotations"]["destructiveHint"] is True
+        assert by_name["terminate_worker"]["annotations"]["destructiveHint"] is False
         assert concrete_resources | template_resources == DEFAULT_RESOURCES
         assert prompt_names == DEFAULT_PROMPTS
         assert len(json.dumps(payload, separators=(",", ":"))) < DEFAULT_TOOL_LIST_BUDGET_BYTES
@@ -166,6 +167,35 @@ def test_mcp_provider_selection_errors_have_inventory_hint(tmp_path: Path) -> No
         assert getattr(result, "isError", False) is True
         assert result.structuredContent["error"]["code"] == "POLICY_BLOCKED"
         assert result.structuredContent["error"]["details"]["example"] == "get_inventory(include_usage=true)"
+
+    anyio.run(run)
+
+
+def test_mcp_poll_worker_tool_returns_recent_log(tmp_path: Path) -> None:
+    async def run() -> None:
+        server = build_mcp_server(_manager(tmp_path, runtime=_PollingRuntime()))
+        result = await server.call_tool(
+            "spawn_worker",
+            {
+                "provider_id": "fake-idle",
+                "task": "Stay running for a poll smoke.",
+                "repo_path": str(tmp_path),
+            },
+        )
+        spawned = _tool_json(result)
+        session_id = spawned["session"]["id"]
+        try:
+            poll_result = await server.call_tool(
+                "poll_worker",
+                {"session_id": session_id, "include_recent_log": True},
+            )
+            payload = _tool_json(poll_result)
+        finally:
+            await server.call_tool("terminate_worker", {"session_id": session_id, "reason": "test cleanup"})
+
+        assert payload["state"] == SessionState.RUNNING.value
+        assert payload["worker_output"]["included"] is True
+        assert "Fake Idle Agent ready" in payload["worker_output"]["text"]
 
     anyio.run(run)
 
@@ -292,7 +322,36 @@ def _tool_json(result: object) -> dict:
     raise AssertionError(f"unexpected MCP tool result: {result!r}")
 
 
-def _manager(tmp_path: Path) -> SessionManager:
+class _PollingRuntime:
+    def spawn(
+        self,
+        command: list[str],
+        cwd: Path,
+        env: dict[str, str],
+        session_name: str,
+    ) -> TmuxSessionRef:
+        return TmuxSessionRef(session_name=session_name)
+
+    def send_message(self, ref: TmuxSessionRef, text: str, submit: bool = True) -> None:
+        return None
+
+    def send_keys(self, ref: TmuxSessionRef, keys: list[str]) -> None:
+        return None
+
+    def capture(self, ref: TmuxSessionRef, lines: int = 300, timeout_seconds: float | None = None) -> str:
+        return "Fake Idle Agent ready.\nWorking..."
+
+    def attach_command(self, ref: TmuxSessionRef) -> str:
+        return f"tmux attach -t {ref.session_name}"
+
+    def exists(self, ref: TmuxSessionRef) -> bool:
+        return True
+
+    def terminate(self, ref: TmuxSessionRef) -> None:
+        return None
+
+
+def _manager(tmp_path: Path, runtime: object | None = None) -> SessionManager:
     db_path = tmp_path / "agentpool.sqlite"
     config = AgentPoolConfig(
         storage=StorageConfig(
@@ -300,7 +359,7 @@ def _manager(tmp_path: Path) -> SessionManager:
             artifact_root=str(tmp_path / "artifacts"),
         )
     )
-    return SessionManager(config=config, store=Store(db_path))
+    return SessionManager(config=config, store=Store(db_path), runtime=runtime)  # type: ignore[arg-type]
 
 
 def _save_session(store: Store, tmp_path: Path, session_id: str) -> None:

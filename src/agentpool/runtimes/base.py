@@ -17,7 +17,7 @@ class RuntimeAdapter(Protocol):
     ) -> RuntimeRef:
         ...
 
-    def capture(self, ref: RuntimeRef, lines: int) -> str:
+    def capture(self, ref: RuntimeRef, lines: int, timeout_seconds: float | None = None) -> str:
         ...
 
     def send_message(self, ref: RuntimeRef, text: str, submit: bool = True) -> None:

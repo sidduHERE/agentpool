@@ -16,7 +16,7 @@ another agent's full transcript through an MCP tool result.
 agentpool usage-summary --refresh --json
 agentpool models --provider <provider-id> --json
 agentpool spawn --provider <provider-id> --model <model-id> --repo . --task "<narrow task>" --isolation read_only --json
-agentpool observe <session-id> --wait-for completed,error,question,approval_prompt --timeout 120 --json
+agentpool observe <session-id> --wait-for completed,error,question,approval_prompt --timeout 60 --json
 agentpool send <session-id> "<steering>"
 agentpool artifacts <session-id> --json
 agentpool transcript <session-id> --offset 0 --limit 4000 --json

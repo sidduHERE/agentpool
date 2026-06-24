@@ -101,7 +101,7 @@ Read agentpool://skill.md. Then call
 get_usage_summary(provider_id="codex-cli", refresh=false),
 get_provider_models(provider_id="codex-cli"), and get_inventory before spawning
 any workers. After spawn_worker, use
-observe_worker for the worker control loop. If Codex shows an update prompt,
+observe_worker for waits and poll_worker for immediate progress checks. If Codex shows an update prompt,
 send menu choice 2 to skip. If Codex shows a directory trust prompt, send an
 empty submitted message only when trusting that directory is acceptable. If it
 shows hook review, send menu choice 3 unless the user approved trusting hooks.

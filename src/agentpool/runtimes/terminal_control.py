@@ -87,8 +87,16 @@ class TerminalControlRuntime:
             )
         return TerminalControlSessionRef(session_name=session_name)
 
-    def capture(self, ref: TerminalControlSessionRef, lines: int = 300) -> str:
+    def capture(
+        self,
+        ref: TerminalControlSessionRef,
+        lines: int = 300,
+        timeout_seconds: float | None = None,
+    ) -> str:
         termctrl = self.require_binary()
+        default_timeout = max(1, (self.config.deadline_ms / 1000) + 2)
+        timeout = max(0.1, timeout_seconds) if timeout_seconds is not None else default_timeout
+        deadline_ms = max(100, int(timeout * 1000) - 250)
         proc = run_capture(
             [
                 termctrl,
@@ -98,11 +106,17 @@ class TerminalControlRuntime:
                 "--settle-ms",
                 str(self.config.settle_ms),
                 "--deadline-ms",
-                str(self.config.deadline_ms),
+                str(min(self.config.deadline_ms, deadline_ms)),
                 ref.session_name,
             ],
-            timeout=max(1, (self.config.deadline_ms / 1000) + 2),
+            timeout=timeout,
         )
+        if proc.returncode == 124:
+            raise ToolError(
+                "RUNTIME_CAPTURE_TIMEOUT",
+                f"Timed out capturing Terminal Control session {ref.session_name}.",
+                {"stderr": proc.stderr, "timeout_seconds": timeout_seconds},
+            )
         if proc.returncode != 0:
             raise ToolError(
                 "RUNTIME_SESSION_NOT_FOUND",

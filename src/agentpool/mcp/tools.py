@@ -20,6 +20,7 @@ from agentpool.stats.compute import compute_stats, filter_sections
 from agentpool.stats.window import parse_window
 
 MCP_USAGE_REFRESH_TIMEOUT_SECONDS = 25.0
+MCP_OBSERVE_MAX_WAIT_SECONDS = 45
 
 
 def structured_error(exc: ToolError) -> dict[str, Any]:
@@ -136,17 +137,48 @@ def observe_worker(
     detail: str = "summary",
     max_lines: int | None = None,
     lockdown: bool = False,
+    include_recent_log: bool = False,
 ) -> dict[str, Any]:
     parsed_detail = parse_detail(detail)
+    effective_timeout, timeout_metadata = _effective_observe_timeout(timeout_seconds)
     response = manager.observe_worker(
         session_id,
         wait_for=wait_for,
-        timeout_seconds=timeout_seconds,
+        timeout_seconds=effective_timeout,
         include_screen=parsed_detail != "summary" and not lockdown,
-        include_recent_log=False,
+        include_recent_log=include_recent_log,
         max_lines=max_lines,
     )
-    return observe_payload(response.model_dump(mode="json"), manager.artifact_manifest(session_id), parsed_detail, lockdown)
+    response_payload = response.model_dump(mode="json")
+    if timeout_metadata:
+        response_payload["metadata"] = {**(response_payload.get("metadata") or {}), **timeout_metadata}
+    payload_detail = "excerpt" if include_recent_log and parsed_detail == "summary" else parsed_detail
+    return observe_payload(
+        response_payload,
+        manager.artifact_manifest(session_id, materialize_result=False),
+        payload_detail,
+        lockdown,
+    )
+
+
+def poll_worker(
+    manager: SessionManager,
+    session_id: str,
+    detail: str = "summary",
+    max_lines: int | None = None,
+    lockdown: bool = False,
+    include_recent_log: bool = True,
+) -> dict[str, Any]:
+    return observe_worker(
+        manager,
+        session_id,
+        wait_for=None,
+        timeout_seconds=0,
+        detail=detail,
+        max_lines=max_lines,
+        lockdown=lockdown,
+        include_recent_log=include_recent_log,
+    )
 
 
 def send_worker_message(
@@ -232,6 +264,31 @@ def release_file_lease(
         return manager.release_file_lease(lease_id=lease_id, session_id=session_id, file_path=file_path)
     except ValueError as exc:
         raise ToolError("INVALID_LEASE_RELEASE", str(exc)) from exc
+
+
+def _effective_observe_timeout(timeout_seconds: int) -> tuple[int, dict[str, Any]]:
+    requested = max(0, int(timeout_seconds or 0))
+    if requested <= 1:
+        if requested == 0:
+            return 0, {}
+        return (
+            0,
+            {
+                "requested_timeout_seconds": requested,
+                "effective_timeout_seconds": 0,
+                "observe_timeout_reason": "fast_poll",
+            },
+        )
+    if requested > MCP_OBSERVE_MAX_WAIT_SECONDS:
+        return (
+            MCP_OBSERVE_MAX_WAIT_SECONDS,
+            {
+                "requested_timeout_seconds": requested,
+                "effective_timeout_seconds": MCP_OBSERVE_MAX_WAIT_SECONDS,
+                "observe_timeout_reason": "mcp_outer_timeout_guard",
+            },
+        )
+    return requested, {}
 
 
 def list_worktrees(manager: SessionManager, repo_path: str) -> dict[str, Any]:

@@ -103,7 +103,7 @@ class CliManager:
             }
         )
 
-    def artifact_manifest(self, session_id):
+    def artifact_manifest(self, session_id, materialize_result=True):
         return {"session_id": session_id, "artifact_dir": "/tmp/artifacts", "files": []}
 
     def collect_worker_artifacts(self, session_id):

@@ -54,7 +54,7 @@ agentpool spawn --provider <provider-id> --repo . \
 The result includes a top-level `session_id`. Drive it with:
 
 ```bash
-agentpool observe <session-id> --wait-for question,completed,error --timeout 120 --json
+agentpool observe <session-id> --wait-for question,completed,error --timeout 60 --json
 agentpool send <session-id> "Continue with the smallest useful check." --json
 agentpool session show <session-id> --json
 agentpool collect <session-id> --json

@@ -14,6 +14,8 @@ from agentpool.artifacts import (
     collect_artifacts,
     create_artifact_dir,
     initialize_artifacts,
+    materialize_result_artifacts,
+    write_partial_summary,
 )
 from agentpool.config import AgentPoolConfig, load_config
 from agentpool.config import default_provider_config
@@ -50,6 +52,7 @@ from agentpool.utils import append_jsonl, new_session_id, sha256_file, utc_now_i
 
 DEFAULT_SESSION_LIMIT = 50
 MAX_SESSION_LIMIT = 500
+OBSERVE_CAPTURE_TIMEOUT_SECONDS = 2.0
 PARTIAL_USAGE_SOURCES = {
     "agentpool_usage_timeout",
     "agentpool_usage_error",
@@ -472,13 +475,77 @@ class SessionManager:
         ref = self._runtime_ref(session)
         runtime_adapter = self._runtime_for(session.runtime)
         deadline = time.monotonic() + max(0, timeout_seconds)
-        wanted = set(wait_for or [])
+        wanted_events, wanted_states, unknown_wait_for = _normalize_wait_for(wait_for)
+        if unknown_wait_for:
+            raise ToolError(
+                "INVALID_WAIT_FOR",
+                "wait_for contains unknown observe events or session states.",
+                {
+                    "unknown": unknown_wait_for,
+                    "allowed": sorted(
+                        {
+                            *(event.value for event in ObserveEvent),
+                            *(_alias_event(event.value) for event in ObserveEvent),
+                            *(state.value for state in SessionState),
+                            "approval",
+                            "cancelled",
+                            "canceled",
+                            "complete",
+                            "done",
+                            "failed",
+                            "failure",
+                            "overage",
+                            "question_prompt",
+                        }
+                    ),
+                },
+            )
+        if not active_state(session.state) and (
+            not wanted_events
+            and not wanted_states
+            or session.state.value.lower() in wanted_states
+        ):
+            return ObserveWorkerResponse(
+                session_id=session_id,
+                state=session.state,
+                event=_event_for_terminal_state(session.state),
+                confidence="observed",
+                metadata={"readiness": _readiness_for_terminal_state(session.state), "source": "stored_state"},
+            )
         previous_hash = session.metadata.get("last_screen_hash")
+        last_clean = ""
+        last_metadata: dict[str, Any] = {}
         while True:
             timed_out = self._enforce_deadline(session)
             if timed_out:
                 return timed_out
-            screen = runtime_adapter.capture(ref, self._runtime_capture_lines(session.runtime, max_lines))
+            remaining = deadline - time.monotonic() if timeout_seconds > 0 else None
+            if remaining is not None and remaining <= 0:
+                return _observe_timeout_response(
+                    session_id,
+                    session.state,
+                    last_clean,
+                    last_metadata,
+                    include_screen=include_screen,
+                    include_recent_log=include_recent_log,
+                )
+            try:
+                screen = runtime_adapter.capture(
+                    ref,
+                    self._runtime_capture_lines(session.runtime, max_lines),
+                    timeout_seconds=_capture_timeout_seconds(remaining),
+                )
+            except ToolError as exc:
+                if exc.error.code != "RUNTIME_CAPTURE_TIMEOUT":
+                    raise
+                return _observe_timeout_response(
+                    session_id,
+                    session.state,
+                    last_clean,
+                    {**last_metadata, "capture_timeout": True, **exc.error.details},
+                    include_screen=include_screen,
+                    include_recent_log=include_recent_log,
+                )
             clean = redact_text(screen)
             detection = detect_event(clean, previous_hash)
             current_hash = screen_hash(clean)
@@ -495,6 +562,16 @@ class SessionManager:
             self.store.save_session(session)
             append_transcript(session, clean)
             (Path(session.artifact_dir) / "latest_screen.txt").write_text(clean, encoding="utf-8")
+            if detection.event == ObserveEvent.COMPLETED:
+                materialize_result_artifacts(session, clean)
+            write_partial_summary(
+                session,
+                clean,
+                state=session.state.value,
+                event=detection.event.value,
+                readiness=readiness,
+                observed_at=utc_now_iso(),
+            )
             self._event(
                 session,
                 f"observe:{detection.event.value}",
@@ -504,7 +581,14 @@ class SessionManager:
                 metadata={"readiness": readiness},
             )
             event_value = detection.event.value
-            if not wanted or event_value in wanted or _alias_event(event_value) in wanted or timeout_seconds <= 0:
+            last_clean = clean
+            last_metadata = observe_metadata
+            if (
+                not wanted_events
+                and not wanted_states
+                or _matches_wait_for(event_value, session.state.value, wanted_events, wanted_states)
+                or timeout_seconds <= 0
+            ):
                 return ObserveWorkerResponse(
                     session_id=session_id,
                     state=session.state,
@@ -526,7 +610,11 @@ class SessionManager:
                     metadata={**observe_metadata, "readiness": "timeout"},
                 )
             previous_hash = current_hash
-            time.sleep(0.5)
+            sleep_seconds = 0.5
+            if timeout_seconds > 0:
+                sleep_seconds = min(sleep_seconds, max(0.0, deadline - time.monotonic()))
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
 
     def send_worker_message(self, session_id: str, message: str, submit: bool = True) -> dict[str, Any]:
         session = self._require_session(session_id)
@@ -629,19 +717,35 @@ class SessionManager:
     ) -> dict[str, Any]:
         session = self._require_session(session_id)
         screen = ""
+        capture_warning = None
         ref = self._runtime_ref(session, required=False)
         runtime_adapter = self._runtime_for(session.runtime)
         runtime_exists = bool(ref and runtime_adapter.exists(ref))
         if ref and runtime_exists:
             try:
-                screen = runtime_adapter.capture(ref, self._runtime_capture_lines(session.runtime, None))
+                screen = runtime_adapter.capture(
+                    ref,
+                    self._runtime_capture_lines(session.runtime, None),
+                    timeout_seconds=OBSERVE_CAPTURE_TIMEOUT_SECONDS,
+                )
             except ToolError as exc:
-                if exc.error.code not in {"TMUX_SESSION_NOT_FOUND", "RUNTIME_SESSION_NOT_FOUND"}:
+                if exc.error.code not in {
+                    "TMUX_SESSION_NOT_FOUND",
+                    "RUNTIME_SESSION_NOT_FOUND",
+                    "RUNTIME_CAPTURE_TIMEOUT",
+                }:
                     raise
                 latest_screen = Path(session.artifact_dir) / "latest_screen.txt"
                 screen = latest_screen.read_text(encoding="utf-8") if latest_screen.exists() else ""
+                capture_warning = {
+                    "code": exc.error.code,
+                    "message": exc.error.message,
+                    "details": exc.error.details,
+                }
         screen = redact_text(screen)
         result = collect_artifacts(session, screen, include_diff=include_diff)
+        if capture_warning:
+            result["warnings"] = [capture_warning]
         if ref and runtime_exists:
             failed = session.state in {SessionState.FAILED, SessionState.CANCELLED}
             for artifact in self._runtime_extra_artifacts(runtime_adapter, ref, Path(session.artifact_dir), failed):
@@ -665,8 +769,8 @@ class SessionManager:
             result["artifacts"] = [a for a in result["artifacts"] if a["kind"] != "transcript"]
         return result
 
-    def artifact_manifest(self, session_id: str) -> dict[str, Any]:
-        return artifact_manifest(self._require_session(session_id))
+    def artifact_manifest(self, session_id: str, materialize_result: bool = True) -> dict[str, Any]:
+        return artifact_manifest(self._require_session(session_id), materialize_result=materialize_result)
 
     def read_transcript(
         self,
@@ -1324,6 +1428,107 @@ def _effective_initial_prompt_mode(requested: str, metadata: dict[str, Any]) -> 
 
 def _alias_event(event: str) -> str:
     return {"approval_prompt": "approval"}.get(event, event)
+
+
+def _normalize_wait_for(wait_for: list[str] | None) -> tuple[set[str], set[str], list[str]]:
+    events: set[str] = set()
+    states: set[str] = set()
+    unknown: list[str] = []
+    for raw_value in wait_for or []:
+        value = str(raw_value).strip().lower().replace("-", "_")
+        if not value:
+            continue
+        value = {
+            "approval": "approval_prompt",
+            "approval_prompt": "approval_prompt",
+            "approvals": "approval_prompt",
+            "cancelled": "cancelled",
+            "canceled": "cancelled",
+            "complete": "completed",
+            "done": "completed",
+            "failed": "failed",
+            "failure": "failed",
+            "overage": "overage_prompt",
+            "question_prompt": "question",
+        }.get(value, value)
+        if value in {event.value for event in ObserveEvent}:
+            events.add(value)
+        if value in {state.value.lower() for state in SessionState}:
+            states.add(value)
+        if value == "completed":
+            states.add(SessionState.COMPLETED.value.lower())
+        elif value == "failed":
+            events.add(ObserveEvent.ERROR.value)
+            states.add(SessionState.FAILED.value.lower())
+        elif value == "cancelled":
+            states.add(SessionState.CANCELLED.value.lower())
+        elif value == "timeout":
+            events.add(ObserveEvent.TIMEOUT.value)
+            states.add(SessionState.CANCELLED.value.lower())
+        if value not in events and value not in states:
+            unknown.append(str(raw_value))
+    return events, states, unknown
+
+
+def _capture_timeout_seconds(remaining: float | None) -> float:
+    if remaining is None:
+        return OBSERVE_CAPTURE_TIMEOUT_SECONDS
+    return max(0.001, min(remaining, OBSERVE_CAPTURE_TIMEOUT_SECONDS))
+
+
+def _event_for_terminal_state(state: SessionState) -> ObserveEvent:
+    if state == SessionState.COMPLETED:
+        return ObserveEvent.COMPLETED
+    if state == SessionState.FAILED:
+        return ObserveEvent.ERROR
+    if state == SessionState.CANCELLED:
+        return ObserveEvent.TIMEOUT
+    return ObserveEvent.NONE
+
+
+def _readiness_for_terminal_state(state: SessionState) -> str:
+    if state == SessionState.COMPLETED:
+        return "completed"
+    if state == SessionState.FAILED:
+        return "failed"
+    if state == SessionState.CANCELLED:
+        return "cancelled"
+    return "unknown"
+
+
+def _observe_timeout_response(
+    session_id: str,
+    state: SessionState,
+    screen: str,
+    metadata: dict[str, Any],
+    *,
+    include_screen: bool,
+    include_recent_log: bool,
+) -> ObserveWorkerResponse:
+    return ObserveWorkerResponse(
+        session_id=session_id,
+        state=state,
+        event=ObserveEvent.TIMEOUT,
+        screen_excerpt=trim_excerpt(screen) if include_screen and screen else None,
+        recent_log=trim_excerpt(screen, 2000) if include_recent_log and screen else None,
+        confidence="observed" if screen else "unknown",
+        metadata={**metadata, "readiness": "timeout"},
+    )
+
+
+def _matches_wait_for(
+    event: str,
+    state: str,
+    wanted_events: set[str],
+    wanted_states: set[str],
+) -> bool:
+    event_value = str(event).lower()
+    state_value = str(state).lower()
+    return (
+        event_value in wanted_events
+        or _alias_event(event_value) in wanted_events
+        or state_value in wanted_states
+    )
 
 
 def _looks_like_menu_choice(message: str) -> bool:

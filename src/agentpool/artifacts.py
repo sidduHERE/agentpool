@@ -10,6 +10,9 @@ from agentpool.redaction import redact_text
 from agentpool.utils import repo_hash, sha256_file, write_json
 
 
+PARTIAL_SUMMARY_MAX_CHARS = 4000
+
+
 def create_artifact_dir(root: Path, repo_path: Path, session_id: str) -> Path:
     artifact_dir = root / repo_hash(repo_path) / session_id
     (artifact_dir / "raw" / "tmux-captures").mkdir(parents=True, exist_ok=True)
@@ -29,14 +32,45 @@ def initialize_artifacts(session: AgentSession, prompt: str) -> None:
 def append_transcript(session: AgentSession, text: str) -> None:
     path = Path(session.transcript_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    if text and text not in existing[-max(len(text), 1) :]:
+    existing_tail = _read_text_tail(path, max(len(text), 1)) if path.exists() else ""
+    if text and text not in existing_tail:
         with path.open("a", encoding="utf-8") as fh:
-            if existing and not existing.endswith("\n"):
+            if path.exists() and path.stat().st_size > 0 and not existing_tail.endswith("\n"):
                 fh.write("\n")
             fh.write(text)
             if not text.endswith("\n"):
                 fh.write("\n")
+
+
+def write_partial_summary(
+    session: AgentSession,
+    screen: str,
+    *,
+    state: str,
+    event: str,
+    readiness: str,
+    observed_at: str,
+) -> None:
+    artifact_dir = Path(session.artifact_dir)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    excerpt = screen.strip()[-PARTIAL_SUMMARY_MAX_CHARS:]
+    if excerpt:
+        excerpt = excerpt.replace("```", "'''")
+    else:
+        excerpt = "No visible worker output captured yet."
+    text = (
+        "# AgentPool Partial Summary\n\n"
+        f"- session_id: `{session.id}`\n"
+        f"- state: `{state}`\n"
+        f"- event: `{event}`\n"
+        f"- readiness: `{readiness}`\n"
+        f"- observed_at: `{observed_at}`\n\n"
+        "## Recent Worker Output\n\n"
+        "```text\n"
+        f"{excerpt}\n"
+        "```\n"
+    )
+    (artifact_dir / "summary.partial.md").write_text(text, encoding="utf-8")
 
 
 def collect_artifacts(session: AgentSession, screen: str, include_diff: bool = True) -> dict[str, Any]:
@@ -71,6 +105,7 @@ def collect_artifacts(session: AgentSession, screen: str, include_diff: bool = T
         ("transcript", "transcript.txt"),
         ("events", "events.jsonl"),
         ("screen", "latest_screen.txt"),
+        ("summary_partial", "summary.partial.md"),
         ("summary", "summary.md"),
         ("result", "result.md"),
         ("git_status", "git-status.txt"),
@@ -93,8 +128,9 @@ def collect_artifacts(session: AgentSession, screen: str, include_diff: bool = T
     }
 
 
-def artifact_manifest(session: AgentSession) -> dict[str, Any]:
-    materialize_result_artifacts(session)
+def artifact_manifest(session: AgentSession, materialize_result: bool = True) -> dict[str, Any]:
+    if materialize_result:
+        materialize_result_artifacts(session)
     artifact_dir = Path(session.artifact_dir)
     files = []
     for kind, filename in [
@@ -103,6 +139,7 @@ def artifact_manifest(session: AgentSession) -> dict[str, Any]:
         ("transcript", "transcript.txt"),
         ("events", "events.jsonl"),
         ("screen", "latest_screen.txt"),
+        ("summary_partial", "summary.partial.md"),
         ("summary", "summary.md"),
         ("result", "result.md"),
         ("git_status", "git-status.txt"),
@@ -141,6 +178,16 @@ def materialize_result_artifacts(session: AgentSession, screen: str = "") -> str
             (artifact_dir / "result.md").write_text(summary, encoding="utf-8")
             return summary
     return None
+
+
+def _read_text_tail(path: Path, max_chars: int) -> str:
+    max_bytes = max(max_chars * 4, 4096)
+    size = path.stat().st_size
+    with path.open("rb") as fh:
+        if size > max_bytes:
+            fh.seek(-max_bytes, 2)
+        data = fh.read()
+    return data.decode("utf-8", errors="replace")[-max_chars:]
 
 
 def extract_result(screen: str) -> str | None:

@@ -127,7 +127,7 @@ agentpool spawn \
   --task "Inspect the project and ask one clarifying question." \
   --isolation read_only
 
-agentpool observe <session-id> --wait-for completed,error,question,approval_prompt --timeout 120 --json
+agentpool observe <session-id> --wait-for completed,error,question,approval_prompt --timeout 60 --json
 agentpool send <session-id> "Continue with the smallest useful check."
 agentpool artifacts <session-id> --json
 agentpool transcript <session-id> --tail-lines 80 --json
@@ -309,7 +309,7 @@ Then use tools for live operations. The user-owned preferences file also shows
 up through `agentpool preferences` and `get_delegation_preferences()`. It may
 say to use your native subagent system instead of AgentPool for some tasks. The
 default MCP toolset is deliberately small: inventory, usage snapshot, usage
-summary, provider models, preferences, spawn, observe, send, interrupt,
+summary, provider models, preferences, spawn, observe, poll, send, interrupt,
 collect, artifact manifest, transcript paging, and terminate. Add opt-in
 toolsets with `agentpool mcp --toolsets default,stats,sessions,leases,worktrees`.
 

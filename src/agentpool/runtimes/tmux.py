@@ -40,11 +40,18 @@ class TmuxRuntime:
             )
         return TmuxSessionRef(session_name=session_name)
 
-    def capture(self, ref: TmuxSessionRef, lines: int = 300) -> str:
+    def capture(self, ref: TmuxSessionRef, lines: int = 300, timeout_seconds: float | None = None) -> str:
         tmux = self.require_tmux()
         proc = run_capture(
             [tmux, "capture-pane", "-p", "-J", "-t", ref.target, "-S", f"-{lines}"],
+            timeout=max(0.1, timeout_seconds) if timeout_seconds is not None else 10,
         )
+        if proc.returncode == 124:
+            raise ToolError(
+                "RUNTIME_CAPTURE_TIMEOUT",
+                f"Timed out capturing tmux pane {ref.target}.",
+                {"stderr": proc.stderr, "timeout_seconds": timeout_seconds},
+            )
         if proc.returncode != 0:
             raise ToolError(
                 "TMUX_SESSION_NOT_FOUND",

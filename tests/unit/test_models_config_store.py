@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from datetime import timedelta
 from pathlib import Path
 
@@ -46,6 +47,7 @@ class RecordingRuntime:
         self.terminated = False
         self.exists_result = True
         self.screen = ""
+        self.capture_timeouts: list[float | None] = []
 
     def spawn(
         self,
@@ -63,7 +65,8 @@ class RecordingRuntime:
     def send_keys(self, ref: TmuxSessionRef, keys: list[str]) -> None:
         self.sent_keys.append(keys)
 
-    def capture(self, ref: TmuxSessionRef, lines: int = 300) -> str:
+    def capture(self, ref: TmuxSessionRef, lines: int = 300, timeout_seconds: float | None = None) -> str:
+        self.capture_timeouts.append(timeout_seconds)
         return self.screen
 
     def attach_command(self, ref: TmuxSessionRef) -> str:
@@ -112,7 +115,12 @@ class TerminalRecordingRuntime:
     def send_keys(self, ref: TerminalControlSessionRef, keys: list[str]) -> None:
         self.sent_keys.append(keys)
 
-    def capture(self, ref: TerminalControlSessionRef, lines: int = 300) -> str:
+    def capture(
+        self,
+        ref: TerminalControlSessionRef,
+        lines: int = 300,
+        timeout_seconds: float | None = None,
+    ) -> str:
         return self.screen
 
     def attach_command(self, ref: TerminalControlSessionRef) -> str:
@@ -145,6 +153,30 @@ class TerminalRecordingRuntime:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("terminal-control artifact\n", encoding="utf-8")
         return [{"kind": "terminal_control_txt", "path": str(path)}]
+
+
+class CaptureTimeoutRuntime(RecordingRuntime):
+    def capture(
+        self,
+        ref: TmuxSessionRef,
+        lines: int = 300,
+        timeout_seconds: float | None = None,
+    ) -> str:
+        raise ToolError(
+            "RUNTIME_CAPTURE_TIMEOUT",
+            "capture exceeded budget",
+            {"timeout_seconds": timeout_seconds},
+        )
+
+
+class NonTimeoutCaptureErrorRuntime(RecordingRuntime):
+    def capture(
+        self,
+        ref: TmuxSessionRef,
+        lines: int = 300,
+        timeout_seconds: float | None = None,
+    ) -> str:
+        raise ToolError("RUNTIME_SESSION_BROKEN", "capture failed for a real reason")
 
 
 def test_config_defaults_include_fake_and_real_providers() -> None:
@@ -889,6 +921,149 @@ def test_observe_marks_unchanged_screen_as_stuck(tmp_path: Path) -> None:
 
     assert observed.metadata["readiness"] == "stuck_unchanged_screen"
     assert observed.metadata["unchanged_screen"] is True
+
+
+def test_observe_wait_for_accepts_terminal_state_names(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+    runtime.screen = "working..."
+    started = time.monotonic()
+
+    observed = manager.observe_worker(result["session"]["id"], wait_for=["RUNNING"], timeout_seconds=5)
+
+    assert time.monotonic() - started < 0.2
+    assert observed.state == SessionState.RUNNING
+    assert observed.event == ObserveEvent.NONE
+
+
+def test_observe_rejects_unknown_wait_for_value(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+
+    with pytest.raises(ToolError) as exc:
+        manager.observe_worker(result["session"]["id"], wait_for=["finished"], timeout_seconds=1)
+
+    assert exc.value.error.code == "INVALID_WAIT_FOR"
+    assert exc.value.error.details["unknown"] == ["finished"]
+
+
+@pytest.mark.parametrize(
+    ("state", "wait_for", "event"),
+    [
+        (SessionState.COMPLETED, "COMPLETED", ObserveEvent.COMPLETED),
+        (SessionState.FAILED, "FAILED", ObserveEvent.ERROR),
+        (SessionState.CANCELLED, "CANCELLED", ObserveEvent.TIMEOUT),
+    ],
+)
+def test_observe_terminal_stored_state_is_not_overwritten_by_stale_screen(
+    tmp_path: Path,
+    state: SessionState,
+    wait_for: str,
+    event: ObserveEvent,
+) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+    session_id = result["session"]["id"]
+    manager.store.update_session_state(session_id, state)
+    runtime.screen = "stale non-terminal screen"
+    started = time.monotonic()
+
+    observed = manager.observe_worker(session_id, wait_for=[wait_for], timeout_seconds=5)
+
+    assert time.monotonic() - started < 0.2
+    assert observed.state == state
+    assert observed.event == event
+    assert observed.metadata["source"] == "stored_state"
+    assert manager.store.get_session(session_id).state == state  # type: ignore[union-attr]
+
+
+def test_observe_uses_small_capture_timeout_inside_long_wait(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = RecordingRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+    runtime.screen = "working..."
+
+    manager.observe_worker(result["session"]["id"], wait_for=["RUNNING"], timeout_seconds=300)
+
+    assert runtime.capture_timeouts[-1] is not None
+    assert runtime.capture_timeouts[-1] <= 2.0
+
+
+def test_observe_capture_timeout_returns_timeout_event(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = CaptureTimeoutRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+
+    observed = manager.observe_worker(result["session"]["id"], wait_for=["COMPLETED"], timeout_seconds=1)
+
+    assert observed.event == ObserveEvent.TIMEOUT
+    assert observed.state == SessionState.RUNNING
+    assert observed.metadata["capture_timeout"] is True
+    assert observed.metadata["timeout_seconds"] <= 1
+
+
+def test_observe_non_timeout_capture_error_still_propagates(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = NonTimeoutCaptureErrorRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+
+    with pytest.raises(ToolError) as exc:
+        manager.observe_worker(result["session"]["id"], wait_for=["COMPLETED"], timeout_seconds=1)
+
+    assert exc.value.error.code == "RUNTIME_SESSION_BROKEN"
+
+
+def test_collect_falls_back_to_latest_screen_on_capture_timeout(tmp_path: Path) -> None:
+    config = load_config(Path("__missing_agentpool_config__.yaml"))
+    config.storage = StorageConfig(db_path=str(tmp_path / "agentpool.sqlite"), artifact_root=str(tmp_path / "artifacts"))
+    config.providers["codex-cli"].command = [sys.executable]
+    runtime = CaptureTimeoutRuntime()
+    manager = SessionManager(config=config, runtime=runtime)  # type: ignore[arg-type]
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="codex-cli", task="inspect", repo_path=str(tmp_path))
+    )
+    session_id = result["session"]["id"]
+    session = manager.store.get_session(session_id)
+    assert session is not None
+    Path(session.artifact_dir, "latest_screen.txt").write_text("last known screen", encoding="utf-8")
+
+    collected = manager.collect_worker_artifacts(session_id)
+
+    assert collected["warnings"][0]["code"] == "RUNTIME_CAPTURE_TIMEOUT"
+    assert Path(collected["artifact_dir"], "latest_screen.txt").read_text(encoding="utf-8") == "last known screen"
 
 
 def test_spawn_runtime_deadline_terminates_on_observe(tmp_path: Path) -> None:

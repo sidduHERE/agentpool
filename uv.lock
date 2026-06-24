@@ -3,7 +3,7 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "agentpool-cli"
-version = "0.1.12"
+version = "0.1.13"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },

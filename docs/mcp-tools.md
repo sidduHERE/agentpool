@@ -39,6 +39,7 @@ The default toolset is the smallest worker lifecycle surface:
 - `get_delegation_preferences`
 - `spawn_worker`
 - `observe_worker`
+- `poll_worker`
 - `send_worker_message`
 - `interrupt_worker`
 - `collect_worker_artifacts`
@@ -85,12 +86,29 @@ Recommended loop:
 1. `get_usage_summary(provider_id=..., refresh=false)`
 2. `get_provider_models(provider_id=...)`
 3. `spawn_worker(provider_id=..., model=..., repo_path=..., task=..., isolation="read_only")`
-4. `observe_worker(session_id=..., wait_for=["completed","error","question","approval_prompt"], timeout_seconds=120)`
+4. `observe_worker(session_id=..., wait_for=["completed","error","question","approval_prompt"], timeout_seconds=45)`
 5. `send_worker_message(...)` or `interrupt_worker(...)` when needed
-6. `get_artifact_manifest(...)`
-7. `read_worker_transcript(session_id=..., offset=..., limit=...)` only when a bounded transcript page is needed
-8. `collect_worker_artifacts(...)`
-9. `terminate_worker(...)` when the session is no longer useful
+6. `poll_worker(session_id=..., include_recent_log=true)` for immediate progress checks between waits
+7. `get_artifact_manifest(...)`
+8. `read_worker_transcript(session_id=..., offset=..., limit=...)` only when a bounded transcript page is needed
+9. `collect_worker_artifacts(...)`
+10. `terminate_worker(...)` when the session is no longer useful
+
+`observe_worker` accepts both event names and terminal state names in
+`wait_for`, so `["completed"]` and `["COMPLETED"]` both work. Unknown
+`wait_for` values are rejected instead of silently becoming a poll. In MCP, long
+observe waits are guarded below common host executor caps; if a larger
+`timeout_seconds` is requested, AgentPool returns a timeout payload with
+`requested_timeout_seconds`, `effective_timeout_seconds`, and the current worker
+metadata rather than letting the outer host drop the tool call. Passing
+`timeout_seconds=0` or `1` is treated as a fast poll. Prefer `poll_worker` when
+you explicitly want "show me the current frame now."
+
+When `include_recent_log=true`, `observe_worker` and `poll_worker` include a
+bounded recent screen/log tail in `worker_output`, even before final artifacts
+exist. Each observe also refreshes `summary.partial.md` in the artifact
+manifest. `summary.md` and `result.md` remain final-result files and are written
+when a result marker is found or when artifacts are collected.
 
 `spawn_worker.task` must be the concrete delegated instruction. Placeholder text
 such as `Improve documentation in @filename` is rejected.
@@ -108,9 +126,10 @@ user's provider config.
 
 ## Output Detail And Lockdown
 
-Worker text is untrusted model output. `observe_worker` and
+Worker text is untrusted model output. `observe_worker`, `poll_worker`, and
 `collect_worker_artifacts` default to `detail="summary"`, which returns state,
-readiness metadata, and artifact paths without inline worker text.
+readiness metadata, and artifact paths without inline worker text unless an
+observe/poll call explicitly asks for `include_recent_log=true`.
 
 Use `detail="excerpt"` or `detail="full"` only when the coordinator needs text
 inline. Inline worker text is wrapped in a random per-call delimiter:

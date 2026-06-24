@@ -1779,7 +1779,11 @@ def observe(
             include_recent_log=False,
             max_lines=max_lines,
         ).model_dump(mode="json")
-        data = observe_payload(observed, mgr.artifact_manifest(session_id), parsed_detail)
+        data = observe_payload(
+            observed,
+            mgr.artifact_manifest(session_id, materialize_result=False),
+            parsed_detail,
+        )
         if output:
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")

@@ -20,7 +20,7 @@ agentpool spawn \
 Observe and steer:
 
 ```bash
-agentpool observe <session-id> --wait-for question,completed,error --timeout 120 --json
+agentpool observe <session-id> --wait-for question,completed,error --timeout 60 --json
 agentpool send <session-id> "Inspect migrations first. Stay read-only."
 agentpool session show <session-id> --json
 agentpool collect <session-id> --json

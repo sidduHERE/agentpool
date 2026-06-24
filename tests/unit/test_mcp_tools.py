@@ -23,6 +23,9 @@ from agentpool.store import Store
 
 
 class RecordingRuntime:
+    def __init__(self) -> None:
+        self.screen = ""
+
     def spawn(self, command: list[str], cwd: Path, env: dict[str, str], session_name: str) -> TmuxSessionRef:
         return TmuxSessionRef(session_name=session_name)
 
@@ -32,8 +35,8 @@ class RecordingRuntime:
     def send_keys(self, ref: TmuxSessionRef, keys: list[str]) -> None:
         return None
 
-    def capture(self, ref: TmuxSessionRef, lines: int = 300) -> str:
-        return ""
+    def capture(self, ref: TmuxSessionRef, lines: int = 300, timeout_seconds: float | None = None) -> str:
+        return self.screen
 
     def attach_command(self, ref: TmuxSessionRef) -> str:
         return f"tmux attach -t {ref.session_name}"
@@ -312,3 +315,104 @@ def test_mcp_send_worker_message(tmp_path: Path) -> None:
     response = tools.send_worker_message(manager, result["session"]["id"], "Continue")
 
     assert response["ok"] is True
+
+
+def test_mcp_poll_worker_returns_recent_log_tail_and_partial_summary(tmp_path: Path) -> None:
+    config = AgentPoolConfig(
+        storage=StorageConfig(
+            db_path=str(tmp_path / "agentpool.sqlite"),
+            artifact_root=str(tmp_path / "artifacts"),
+        )
+    )
+    runtime = RecordingRuntime()
+    manager = SessionManager(
+        config=config,
+        store=Store(tmp_path / "agentpool.sqlite"),
+        runtime=runtime,  # type: ignore[arg-type]
+    )
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="fake-idle", task="inspect", repo_path=str(tmp_path))
+    )
+    session_id = result["session"]["id"]
+    runtime.screen = "progress line 1\nprogress line 2\nstill running"
+
+    payload = tools.poll_worker(manager, session_id, detail="summary", include_recent_log=True)
+    artifact_files = {file["kind"]: file for file in payload["artifact_manifest"]["files"]}
+    partial_path = Path(artifact_files["summary_partial"]["path"])
+
+    assert payload["event"] == "none"
+    assert payload["worker_output"]["included"] is True
+    assert "still running" in payload["worker_output"]["text"]
+    assert artifact_files["summary_partial"]["exists"] is True
+    assert "still running" in partial_path.read_text(encoding="utf-8")
+
+
+def test_mcp_observe_caps_long_waits_before_outer_executor_timeout(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config = AgentPoolConfig(
+        storage=StorageConfig(
+            db_path=str(tmp_path / "agentpool.sqlite"),
+            artifact_root=str(tmp_path / "artifacts"),
+        )
+    )
+    runtime = RecordingRuntime()
+    manager = SessionManager(
+        config=config,
+        store=Store(tmp_path / "agentpool.sqlite"),
+        runtime=runtime,  # type: ignore[arg-type]
+    )
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="fake-idle", task="inspect", repo_path=str(tmp_path))
+    )
+    runtime.screen = "worker is thinking"
+    monkeypatch.setattr(tools, "MCP_OBSERVE_MAX_WAIT_SECONDS", 0.05)
+    started = time.monotonic()
+
+    payload = tools.observe_worker(
+        manager,
+        result["session"]["id"],
+        wait_for=["COMPLETED"],
+        timeout_seconds=300,
+        include_recent_log=True,
+    )
+
+    assert time.monotonic() - started < 0.5
+    assert payload["event"] == "timeout"
+    assert payload["metadata"]["requested_timeout_seconds"] == 300
+    assert payload["metadata"]["effective_timeout_seconds"] == 0.05
+    assert payload["metadata"]["observe_timeout_reason"] == "mcp_outer_timeout_guard"
+    assert payload["worker_output"]["included"] is True
+
+
+def test_mcp_observe_timeout_one_is_fast_poll(tmp_path: Path) -> None:
+    config = AgentPoolConfig(
+        storage=StorageConfig(
+            db_path=str(tmp_path / "agentpool.sqlite"),
+            artifact_root=str(tmp_path / "artifacts"),
+        )
+    )
+    runtime = RecordingRuntime()
+    manager = SessionManager(
+        config=config,
+        store=Store(tmp_path / "agentpool.sqlite"),
+        runtime=runtime,  # type: ignore[arg-type]
+    )
+    result = manager.spawn_worker(
+        SpawnWorkerRequest(provider_id="fake-idle", task="inspect", repo_path=str(tmp_path))
+    )
+    runtime.screen = "quick state"
+    started = time.monotonic()
+
+    payload = tools.observe_worker(
+        manager,
+        result["session"]["id"],
+        wait_for=["COMPLETED"],
+        timeout_seconds=1,
+        include_recent_log=True,
+    )
+
+    assert time.monotonic() - started < 0.2
+    assert payload["metadata"]["observe_timeout_reason"] == "fast_poll"
+    assert payload["event"] == "none"

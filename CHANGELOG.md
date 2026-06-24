@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.1.13 - 2026-06-24
+
+- Add `poll_worker` as a fast MCP progress snapshot and make
+  `observe_worker(timeout_seconds=0/1)` behave as a true fast poll.
+- Bound MCP observe waits below common host executor timeouts and return timeout
+  metadata instead of leaving coordinators with dropped tool calls.
+- Honor `include_recent_log` for MCP observation, refresh
+  `summary.partial.md` while workers are running, and avoid full transcript
+  scans on observe/poll artifact manifests.
+- Accept terminal state names such as `COMPLETED`, `FAILED`, and `CANCELLED` in
+  `wait_for` and pass observe deadlines into runtime capture calls.
+- Mark `terminate_worker` as explicit, side-effecting, idempotent cleanup in
+  MCP annotations without treating it as user-data destruction.
+
 ## 0.1.12 - 2026-06-06
 
 - Add optional Terminal Control runtime support while keeping tmux as the
